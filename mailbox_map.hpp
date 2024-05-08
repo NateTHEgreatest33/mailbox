@@ -11,11 +11,12 @@
 /*--------------------------------------------------------------------
                               INCLUDES
 --------------------------------------------------------------------*/
-
+#include "sys_def.h"
+#include "messageAPI.hpp"
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
 --------------------------------------------------------------------*/
-
+namespace core {
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
@@ -25,7 +26,7 @@
 --------------------------------------------------------------------*/
 typedef union 
 {
-    float   flt;
+    float    flt;
     uint32_t u32;
 }data_union;
 
@@ -46,20 +47,34 @@ typedef enum
 
 typedef enum
 {
-    NO_PENDING_FLAG,
+    NO_FLAG,
     UPDATE_TX_FLAG,
     UPDATE_RX_FLAG,
 
     NUM_FLAGS
 } flag_type;
 
+
+typedef enum
+{
+    100_MS,
+    500_MS,
+    1_S,
+    ASYNC,
+
+    NUM_UPDATE_RATES
+} update_rate;
+
+
 typedef struct
 {
-    data_union  data;
-    data_type   type;
-    uint32_t    update_rate;
-    engine_type engine; 
-    flag_type flag;
+    data_union        data;
+    data_type         type;
+    update_rate       upt_rt;
+    engine_type       engine; 
+    flag_type         flag;
+    core::location    destination;
+    core::location    source;
 } mabilbox_type;
 
 
@@ -71,6 +86,10 @@ typedef struct
 /*--------------------------------------------------------------------
                               VARIABLES
 --------------------------------------------------------------------*/
+/*----------------------------------------
+global_mailbox is to be defined on each 
+unit and is not included 
+----------------------------------------*/
 extern mabilbox_type global_mailbox[];
 /*--------------------------------------------------------------------
                                 MACROS
@@ -84,4 +103,7 @@ extern mabilbox_type global_mailbox[];
                                CLASSES
 --------------------------------------------------------------------*/
 
+
+
+} /* namespace core */
 #endif
