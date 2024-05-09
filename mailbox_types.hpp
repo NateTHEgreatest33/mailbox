@@ -1,9 +1,9 @@
-#ifndef MAILBOX_MAP_HPP
-#define MAILBOX_MAP_HPP
+#ifndef MAILBOX_TYPES_HPP
+#define MAILBOX_TYPES_HPP
 /*********************************************************************
 *
 *   HEADER:
-*       header file for mailbox API Mapping
+*       header file for mailbox types
 *
 *   Copyright 2024 Nate Lenze
 *
@@ -12,11 +12,13 @@
                               INCLUDES
 --------------------------------------------------------------------*/
 #include "sys_def.h"
+
 #include "messageAPI.hpp"
+
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
 --------------------------------------------------------------------*/
-namespace core {
+
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
@@ -26,8 +28,8 @@ namespace core {
 --------------------------------------------------------------------*/
 typedef union 
 {
-    float    flt;
-    uint32_t u32;
+    float        flt;
+    int          integer;
 }data_union;
 
 typedef enum
@@ -48,8 +50,8 @@ typedef enum
 typedef enum
 {
     NO_FLAG,
-    UPDATE_TX_FLAG,
-    UPDATE_RX_FLAG,
+    TRANSMIT_FLAG,
+    RECEIVE_FLAG,
 
     NUM_FLAGS
 } flag_type;
@@ -73,9 +75,9 @@ typedef struct
     update_rate       upt_rt;
     engine_type       engine; 
     flag_type         flag;
-    core::location    destination;
-    core::location    source;
-} mabilbox_type;
+    location          destination;
+    location          source;
+} mailbox_type;
 
 
 
@@ -86,11 +88,7 @@ typedef struct
 /*--------------------------------------------------------------------
                               VARIABLES
 --------------------------------------------------------------------*/
-/*----------------------------------------
-global_mailbox is to be defined on each 
-unit and is not included 
-----------------------------------------*/
-extern mabilbox_type global_mailbox[];
+
 /*--------------------------------------------------------------------
                                 MACROS
 --------------------------------------------------------------------*/
@@ -103,7 +101,4 @@ extern mabilbox_type global_mailbox[];
                                CLASSES
 --------------------------------------------------------------------*/
 
-
-
-} /* namespace core */
 #endif

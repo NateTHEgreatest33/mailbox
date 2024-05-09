@@ -48,10 +48,15 @@
 class mailbox 
     {
     public:
-        mailbox( void );
+        mailbox( mailbox_type& global_mailbox[], int mailbox_size );
+        void mailbox_runtime( void );
+        data_union mailbox_access( int global_mbx_inx );
         ~mailbox( void );
 
     private:
+        mailbox_type& p_mailbox_ref[];
+        int p_mailbox_size;
+
     };
 
 #endif

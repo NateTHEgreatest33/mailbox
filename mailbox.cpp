@@ -55,8 +55,9 @@ mailbox()
 *       mailbox class constructor
 *
 *********************************************************************/
-mailbox::mailbox( void ) 
+mailbox::mailbox( mailbox_type& global_mailbox[] ) 
     {
+    p_
     }
 
 /*********************************************************************

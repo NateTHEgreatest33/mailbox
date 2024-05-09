@@ -9,13 +9,14 @@ pico_sdk_init()
 add_library( mailboxAPI
     mailbox.hpp
     mailbox.cpp
-    
-    mailbox_map.hpp
+
+    mailbox_types.hpp
     )
 
 target_link_libraries( mailboxAPI
   pico_stdlib 
-  
+  messageAPI
+
   # Using Pico W
   pico_cyw43_arch_none
 )
