@@ -56,6 +56,7 @@ class mailbox
     private:
         mailbox_type& p_mailbox_ref[];
         int p_mailbox_size;
+        int p_internal_clk;
 
     };
 

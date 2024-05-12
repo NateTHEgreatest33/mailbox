@@ -55,9 +55,11 @@ mailbox()
 *       mailbox class constructor
 *
 *********************************************************************/
-mailbox::mailbox( mailbox_type& global_mailbox[] ) 
+mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
     {
-    p_
+    p_mailbox_size = mailbox_size;
+    p_mailbox_ref = global_mailbox;
+    p_internal_clk = 0;
     }
 
 /*********************************************************************
@@ -70,5 +72,57 @@ mailbox::mailbox( mailbox_type& global_mailbox[] )
 *
 *********************************************************************/
 mailbox::~mailbox( void ) 
-  {
-  }
+	{
+	}
+
+
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       mailbox::~mailbox (deconstructor)
+*
+*   DESCRIPTION:
+*       mailbox class deconstructor
+*
+*********************************************************************/
+void mailbox::mailbox_runtime( void )
+{
+int i;
+bool process;
+
+
+i = 0;
+
+
+for( i = 0; i < p_mailbox_size; i++ )
+    {
+
+	process = false;
+
+    switch( p_mailbox_ref[ i ].upt_rt )
+        {
+        case 100_MS:
+        case ASYNC:
+			process = true;
+			break;
+        case 500_MS:
+            if( p_internal_clk == 0 || p_internal_clk == 500 )
+                {
+                
+                }
+            break;
+        case 1_S:
+            if( p_internal_clk == 0 )
+                {
+                
+                }
+            break;
+        default:
+          break;
+        } 
+    }
+
+p_internal_clk = ( p_internal_clk + 100 ) % 1000;
+
+}
