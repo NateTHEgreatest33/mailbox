@@ -13,6 +13,8 @@
 --------------------------------------------------------------------*/
 #include "message_map.hpp"
 
+#include <queue>
+
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
 --------------------------------------------------------------------*/
@@ -45,7 +47,7 @@
                                CLASSES
 --------------------------------------------------------------------*/
 
-class mailbox 
+class mailbox  //suggestion to use templates to pass in mailbox_size and thus be able to use arrays
     {
     public:
         mailbox( mailbox_type& global_mailbox[], int mailbox_size );
@@ -57,6 +59,14 @@ class mailbox
         mailbox_type& p_mailbox_ref[];
         int p_mailbox_size;
         int p_internal_clk;
+        std::queue<mailbox_type&> p_transmit_queue; //should this become std::array instead? probably 
+
+        void pack_engine( void );
+        void process_tx( mailbox_type& letter );
+        void process_rx( mailbox_type& letter );
+        void transmit_engine( void );
+
+
 
     };
 

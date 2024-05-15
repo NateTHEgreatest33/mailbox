@@ -40,12 +40,12 @@ typedef enum
     NUM_TYPES
 }data_type;
 
-typedef enum
-{
-    MESSAGE_API_ENGINE,
+// typedef enum
+// {
+//     MESSAGE_API_ENGINE,
 
-    NUM_ENGINES
-}engine_type;
+//     NUM_ENGINES
+// }engine_type;
 
 typedef enum
 {
@@ -67,14 +67,23 @@ typedef enum
     NUM_UPDATE_RATES
 } update_rate;
 
+typedef enum 
+{
+    TX,
+    RX
+
+    NUM_DIRECTINS
+} direction;
+
 
 typedef struct
 {
     data_union        data;
     data_type         type;
     update_rate       upt_rt;
-    engine_type       engine; 
+    // engine_type       engine; 
     flag_type         flag;
+    direction         dir;
     location          destination;
     location          source;
 } mailbox_type;
