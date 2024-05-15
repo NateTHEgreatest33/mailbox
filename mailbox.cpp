@@ -17,7 +17,7 @@
 #include "mailbox_map.hpp"
 
 #include <functional>
-#include <unordered_map>
+
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -92,7 +92,6 @@ mailbox::~mailbox( void )
 *********************************************************************/
 void mailbox::mailbox_runtime( void )
 {
-
 int i;
 bool process;
 const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { 100MS :  [](int clk ){ return true;  }                                      },
@@ -102,7 +101,7 @@ const std::unordered_map< update_rate, std::function<bool(int)> > process_map = 
                                                                                 };
 i       = 0;
 process = false;
-P_transmit_queue = {}; //clear for processing loop 
+p_transmit_queue = {}; //clear for processing loop 
 //foreach item in global mailbox
 for( i = 0; i < p_mailbox_size; i++ )
     {
@@ -134,6 +133,8 @@ for( i = 0; i < p_mailbox_size; i++ )
 //update clock
 p_internal_clk = ( p_internal_clk + 100 ) % 1000;
 
+this->transmit_engine();
+
 } /* mailbox:mailbox_runtime() */
 
 
@@ -142,7 +143,12 @@ void mailbox::process_tx
 	mailbox_type& letter 
 	)
 {
+if( source != current_unit )
+	{
+	return;
+	}
 
+//add to transmit queue if needing to be transmitted. thinking 
 }
 
 
@@ -151,7 +157,7 @@ void mailbox::process_rx
 	mailbox_type& letter 
 	)
 {
-
+if( destination != current_)
 }
 
 
@@ -169,5 +175,19 @@ void mailbox::transmit_engine
 	void
 	)
 {
+this->pack_engine(); //do something w/ p_transmit_queue and make it MessageAPI compatable, need to sort into destination buckets, or make messageAPI have an ALL units ID?
 
 }
+
+/*
+more thoughts
+
+1) table should be global accross units, which means terms like source and destination, make sense? no dual communication
+2) TX should happen every 1s to avoid having lora in TX too long
+3) TX should pack using the transmit queue and transmit engine
+4) does update rate make sense or should it just always be async? not sure on this one 
+
+
+*/
+
+

@@ -14,6 +14,7 @@
 #include "message_map.hpp"
 
 #include <queue>
+#include <unordered_map>
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -60,6 +61,8 @@ class mailbox  //suggestion to use templates to pass in mailbox_size and thus be
         int p_mailbox_size;
         int p_internal_clk;
         std::queue<mailbox_type&> p_transmit_queue; //should this become std::array instead? probably 
+        std::unordered_map<int, data_union> p_rx_map; //feel like we need ot have a way of timeout? maybe a queue makes sense?
+
 
         void pack_engine( void );
         void process_tx( mailbox_type& letter );
