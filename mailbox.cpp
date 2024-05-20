@@ -15,9 +15,11 @@
 --------------------------------------------------------------------*/
 #include "mailbox.hpp"
 #include "mailbox_map.hpp"
+#include "messageAPI.hpp"
 
 #include <functional>
 #include <type_traits> //for static assert
+
 
 
 /*--------------------------------------------------------------------
@@ -194,21 +196,43 @@ for( )
 
 }
 
-//wont empty will just create 
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::pack_engine()
+*
+*   DESCRIPTION:
+*       this takes the current p_transmit_queue and packs it into
+*       tx_messages's. This will run until the message is full and return
+*       that message
+*
+*
+*   NOTE:
+*       this may need to be run multiple times if there are many items
+*		in the transmit queue
+*
+*********************************************************************/
 tx_message core::mailbox::pack_engine
 	(
 	void
 	)
 {
-//consider making a priority queue for higher priority messages?
+//consider making a priority queue for higher priority messages? and/or based on size? that way we can pack as many items in here? that would optimize it for sure
 tx_message return_msg;
-//memset 
-tx_tr = 0;
-for( auto letter : p_transmit_queue )
+
+//init data 
+memset( &return_msg, 0, sizeof( tx_message ) );
+return_msg.destination = MODULE_NONE;
+
+
+
+tx_tr = return_msg.size;
+for( auto letter : p_transmit_queue ) //CANNOT DO THIS! poping from queue will mess this up so we need to just use queue size and.or itr geting to big
 	{
 	auto current_letter = letter.top();
 
-	if(  size_map[ current_letter.type ] + tx_tr >=  MAX_LORA_SIZE )
+	//every data needs size+1 to transmit. the +1 is the identifier byte that preceeds the dat
+	if(  size_map[ current_letter.type ] + tx_tr >=  MAX_MSG_LENGTH )
 		{
 		break; //reached the end of the sizing 
 		}
@@ -216,14 +240,43 @@ for( auto letter : p_transmit_queue )
 	return_msg[tx_itr++] = 0;//need to figure out index, maybe queue should be index's?
 	tx_tr += size_map[ current_letter.type ];
 
-	}
+	//shift into location
+	switch ( current_letter.type)
+		{
+		case FLOAT_32_TYPE:
+		//intentional fallthrough
+		case UINT_32_TYPE:
+			for( int i = 0; i < size_map[ current_letter.type ]; i++ )
+				{
+				return_msg[ tx_itr++ ] = current_letter.data.unit8_access[i];
+				}
+			break;
+		case BOOLEAN_TYPE:
+			return_msg[ tx_itr++ ] = (uint8_t)current_letter.data.boolean;
+		default:
+			console.add_assert( "Unsupported type defined in global mailbox" );
+		}
 
-//we have re
 
 
-//messageAPI only allows 10 bytes to be transmited at time, this means 
+	if( return_msg.destination != current_letter.destination )
+		{
+		if( return_msg.destination == MODULE_NONE )
+			{
+			return_msg.destination = current_letter.destination;
+			}
+		else
+			{ //if we have set the desntiation and match 
+			return_msg.destination = MODULE_ALL;
+			}
+		}
+
+	p_transmit_queue.pop();
+
+	} //continue through untill we run out of space
 
 
+return return_msg;
 }
 
 

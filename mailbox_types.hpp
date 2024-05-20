@@ -32,6 +32,7 @@ typedef union
     float        flt;
     int          integer;
     bool         boolean;
+    unit8_t      uint8_access[4];
 }data_union;
 
 typedef enum
