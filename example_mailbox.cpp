@@ -10,5 +10,16 @@ mailbox_type global_mailbox[] =
 { 0.0f,  FLOAT_TYPE,  500_MS,  NO_FLAG, TX,        PICO_MODULE, RPI_MODULE  }  /* EXAMPLE_FLT_MSG */
 };
 
+typedef enum letter_name
+    {
+    EXAMPLE_INT_MSG,
+    EXAMPLE_FLT_MSG
+
+
+    NUM_LETTERS
+    };
+//max length limited to uint_8t size
+
+
 
 core::mailbox( global_mailbox, NUM_MSG );

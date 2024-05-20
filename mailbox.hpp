@@ -12,6 +12,7 @@
                               INCLUDES
 --------------------------------------------------------------------*/
 #include "message_map.hpp"
+#include "messageAPI.hpp"
 
 #include <queue>
 #include <unordered_map>
@@ -47,7 +48,8 @@
 /*--------------------------------------------------------------------
                                CLASSES
 --------------------------------------------------------------------*/
-
+namespace core {
+// template<int T>
 class mailbox  //suggestion to use templates to pass in mailbox_size and thus be able to use arrays
     {
     public:
@@ -64,7 +66,8 @@ class mailbox  //suggestion to use templates to pass in mailbox_size and thus be
         std::unordered_map<int, data_union> p_rx_map; //feel like we need ot have a way of timeout? maybe a queue makes sense?
 
 
-        void pack_engine( void );
+        tx_message pack_engine( void );
+        void unpack_engine(rx_message);
         void process_tx( mailbox_type& letter );
         void process_rx( mailbox_type& letter );
         void transmit_engine( void );
@@ -72,5 +75,7 @@ class mailbox  //suggestion to use templates to pass in mailbox_size and thus be
 
 
     };
+
+} /* core namespace */
 
 #endif

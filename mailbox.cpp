@@ -17,6 +17,7 @@
 #include "mailbox_map.hpp"
 
 #include <functional>
+#include <type_traits> //for static assert
 
 
 /*--------------------------------------------------------------------
@@ -26,7 +27,7 @@
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
-
+#define MAX_SIZE_GLOBAL_MAILBOX (256) //this is because the identfier needs to fit within a unint8t so max size - 256
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -34,6 +35,11 @@
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
 --------------------------------------------------------------------*/
+
+/*--------------------------------------------------------------------
+                              EXTERNS
+--------------------------------------------------------------------*/
+extern core::console console;
 
 /*--------------------------------------------------------------------
                               VARIABLES
@@ -52,14 +58,17 @@ mailbox()
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       mailbox::mailbox (constructor)
+*       core::mailbox::mailbox (constructor)
 *
 *   DESCRIPTION:
 *       mailbox class constructor
 *
 *********************************************************************/
-mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
+core::mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
     {
+	
+	std::static_assert( mailbox_size > MAX_SIZE_GLOBAL_MAILBOX);
+	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
     p_mailbox_size = mailbox_size;
     p_mailbox_ref = global_mailbox;
     p_internal_clk = 0;
@@ -68,13 +77,13 @@ mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       mailbox::~mailbox (deconstructor)
+*       core::mailbox::~mailbox (deconstructor)
 *
 *   DESCRIPTION:
 *       mailbox class deconstructor
 *
 *********************************************************************/
-mailbox::~mailbox( void ) 
+core::mailbox::~mailbox( void ) 
 	{
 	}
 
@@ -83,14 +92,14 @@ mailbox::~mailbox( void )
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       mailbox::mailbox_runtime()
+*       core::mailbox::mailbox_runtime()
 *
 *   DESCRIPTION:
 *       this to be run every 100ms (fastest update rate) to handle
 *       different mailbox items
 *
 *********************************************************************/
-void mailbox::mailbox_runtime( void )
+void core::mailbox::mailbox_runtime( void )
 {
 int i;
 bool process;
@@ -123,7 +132,7 @@ for( i = 0; i < p_mailbox_size; i++ )
 			this->process_rx( p_mailbox_ref[ i ] );
 			break;
 		default:
-			//console assert 
+			console.add_assert( "mailbox dir incorrectly configured" );
 			break;
 		}
 
@@ -133,31 +142,32 @@ for( i = 0; i < p_mailbox_size; i++ )
 //update clock
 p_internal_clk = ( p_internal_clk + 100 ) % 1000;
 
-this->transmit_engine();
+//run transmit engine every 1s
+if( p_internal_clk == 0 )
+	this->transmit_engine();
 
 } /* mailbox:mailbox_runtime() */
 
 
-void mailbox::process_tx
+void core::mailbox::process_tx
 	( 
 	mailbox_type& letter 
 	)
 {
 if( source != current_unit )
-	{
 	return;
-	}
 
 //add to transmit queue if needing to be transmitted. thinking 
 }
 
 
-void mailbox::process_rx
+void core::mailbox::process_rx
 	( 
 	mailbox_type& letter 
 	)
 {
-if( destination != current_)
+if( destination != current_location )
+	return;
 }
 
 
@@ -170,14 +180,54 @@ void add_to_transmit_queue
 
 }
 
-void mailbox::transmit_engine
+void core::mailbox::transmit_engine
 	(
 	void
 	)
 {
+
 this->pack_engine(); //do something w/ p_transmit_queue and make it MessageAPI compatable, need to sort into destination buckets, or make messageAPI have an ALL units ID?
+//send packed
+for( )
+//wait for ack
+//update msgAPI Key
 
 }
+
+//wont empty will just create 
+tx_message core::mailbox::pack_engine
+	(
+	void
+	)
+{
+//consider making a priority queue for higher priority messages?
+tx_message return_msg;
+//memset 
+tx_tr = 0;
+for( auto letter : p_transmit_queue )
+	{
+	auto current_letter = letter.top();
+
+	if(  size_map[ current_letter.type ] + tx_tr >=  MAX_LORA_SIZE )
+		{
+		break; //reached the end of the sizing 
+		}
+
+	return_msg[tx_itr++] = 0;//need to figure out index, maybe queue should be index's?
+	tx_tr += size_map[ current_letter.type ];
+
+	}
+
+//we have re
+
+
+//messageAPI only allows 10 bytes to be transmited at time, this means 
+
+
+}
+
+
+
 
 /*
 more thoughts

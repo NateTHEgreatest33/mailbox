@@ -14,6 +14,7 @@
 #include "sys_def.h"
 
 #include "messageAPI.hpp"
+#include <unordered_map>
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -30,15 +31,28 @@ typedef union
 {
     float        flt;
     int          integer;
+    bool         boolean;
 }data_union;
 
 typedef enum
 {
-    FLOAT_TYPE,
-    UINT_TYPE,
+    FLOAT_32_TYPE,
+    UINT_32_TYPE,
+    BOOLEAN_TYPE,
+    
 
     NUM_TYPES
 }data_type;
+
+//mapping of sizes to how many u8 they would take up
+cont std::unordered_map< data_type, int> size_map
+    {
+    { FLOAT_32_TYPE, 4 },
+    { UINT_32_TYPE,  4 },
+    { BOOLEAN_TYPE,  1 }
+    };
+
+std::static_assert( size_map.size() != NUM_TYPES );
 
 // typedef enum
 // {
