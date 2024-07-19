@@ -66,12 +66,12 @@ mailbox()
 *       mailbox class constructor
 *
 *********************************************************************/
-core::mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
+template <int M>
+core::mailbox<M>::mailbox( mailbox_type& global_mailbox[] );
     {
 	
-	std::static_assert( mailbox_size > MAX_SIZE_GLOBAL_MAILBOX);
+	std::static_assert( N > MAX_SIZE_GLOBAL_MAILBOX, "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX");
 	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
-    p_mailbox_size = mailbox_size;
     p_mailbox_ref = global_mailbox;
     p_internal_clk = 0;
     }
@@ -85,7 +85,8 @@ core::mailbox::mailbox( mailbox_type& global_mailbox[], , int mailbox_size );
 *       mailbox class deconstructor
 *
 *********************************************************************/
-core::mailbox::~mailbox( void ) 
+template <int M>
+core::mailbox<M>::~mailbox( void ) 
 	{
 	}
 
@@ -101,7 +102,8 @@ core::mailbox::~mailbox( void )
 *       different mailbox items
 *
 *********************************************************************/
-void core::mailbox::mailbox_runtime( void )
+template <int M>
+void core::mailbox<M>::mailbox_runtime( void )
 {
 int i;
 bool process;
@@ -150,8 +152,8 @@ if( p_internal_clk == 0 )
 
 } /* mailbox:mailbox_runtime() */
 
-
-void core::mailbox::process_tx
+template <int M>
+void core::mailbox<M>::process_tx
 	( 
 	mailbox_type& letter 
 	)
@@ -162,8 +164,8 @@ if( source != current_unit )
 //add to transmit queue if needing to be transmitted. thinking 
 }
 
-
-void core::mailbox::process_rx
+template <int M>
+void core::mailbox<M>::process_rx
 	( 
 	mailbox_type& letter 
 	)
@@ -173,7 +175,7 @@ if( destination != current_location )
 }
 
 
-
+template <int M>
 void add_to_transmit_queue
 	(
 		void
@@ -181,7 +183,7 @@ void add_to_transmit_queue
 {
 
 }
-
+template <int M>
 void core::mailbox::transmit_engine
 	(
 	void
@@ -212,7 +214,8 @@ for( )
 *		in the transmit queue
 *
 *********************************************************************/
-tx_message core::mailbox::pack_engine
+template <int M>
+tx_message core::mailbox<M>::pack_engine
 	(
 	void
 	)

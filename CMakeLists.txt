@@ -16,9 +16,10 @@ add_library( mailboxAPI
 target_link_libraries( mailboxAPI
   pico_stdlib 
   messageAPI
+  utilLib
 
   # Using Pico W
   pico_cyw43_arch_none
 )
 
-target_include_directories(mailboxAPI PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories( mailboxAPI PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" )
