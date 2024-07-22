@@ -55,21 +55,19 @@
 namespace core {
 
 template<int M>
-class mailbox  //suggestion to use templates to pass in mailbox_size and thus be able to use arrays
+class mailbox
     {
     public:
         mailbox( std::array<mailbox_type, M>& global_mailbox );
         void mailbox_runtime( void );
-        data_union mailbox_access( int global_mbx_indx );
+        data_union access( int global_mbx_indx );
+        bool update( data_union d, int global_mbx_indx );
         ~mailbox( void );
 
     private:
-        // mailbox_type& p_mailbox_ref;
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_internal_clk;
-        // std::queue<mailbox_type&> p_transmit_queue; //should this become std::array instead? OR a priority queue, either one
-        utl::queue<M, letter_name> p_transmit_queue;
-        // std::unordered_map<int, data_union> p_rx_map; //feel like we need ot have a way of timeout? maybe a queue makes sense?
+        utl::queue<M, mbx_index> p_transmit_queue;
 
 
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine

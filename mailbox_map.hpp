@@ -12,14 +12,14 @@ mailbox_type global_mailbox[] =
 { 0.0f,  data_type::FLOAT_32_TYPE, update_rate::RT_500_MS,  flag_type::NO_FLAG, direction::TX,        PICO_MODULE, RPI_MODULE  }  /* EXAMPLE_FLT_MSG */
 };
 
-enum struct letter_name
+enum struct mbx_index : uint8_t
     {
     EXAMPLE_INT_MSG,
     EXAMPLE_FLT_MSG,
 
 
-    NUM_LETTERS,
-    LETTER_NONE
+    NUM_MAILBOX,
+    MAILBOX_NONE
     };
 //max size is uint8t
 
