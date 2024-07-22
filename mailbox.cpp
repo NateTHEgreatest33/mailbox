@@ -67,10 +67,12 @@ mailbox()
 *
 *********************************************************************/
 template <int M>
-core::mailbox<M>::mailbox( mailbox_type& global_mailbox[] );
+core::mailbox<M>::mailbox( mailbox_type& global_mailbox )
     {
-	
-	std::static_assert( N > MAX_SIZE_GLOBAL_MAILBOX, "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX");
+
+	// std::static_assert( size_map.size() != NUM_TYPES );
+
+	// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
 	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
     p_mailbox_ref = global_mailbox;
     p_internal_clk = 0;
@@ -107,15 +109,16 @@ void core::mailbox<M>::mailbox_runtime( void )
 {
 int i;
 bool process;
-const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { 100MS :  [](int clk ){ return true;  }                                      },
-																		 		  { 500_MS : [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
-																				  { 1_S :    [](int clk ){ return ( clk == 0 );  }                              },
-																				  { ASYNC :  [](int clk ){ return true;  }                                      }
+const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS : [](int clk ){ return true;  }                                      },
+																		 		  { update_rate::RT_500_MS : [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
+																				  { update_rate::RT_1_S    : [](int clk ){ return ( clk == 0 );  }                              },
+																				  { update_rate::RT_ASYNC  : [](int clk ){ return true;  }                                      }
                                                                                 };
 i       = 0;
 process = false;
-p_transmit_queue = {}; //clear for processing loop 
-//foreach item in global mailbox
+
+// p_transmit_queue.empty();
+
 for( i = 0; i < p_mailbox_size; i++ )
     {
 
@@ -190,7 +193,7 @@ void core::mailbox::transmit_engine
 	)
 {
 
-this->pack_engine(); //do something w/ p_transmit_queue and make it MessageAPI compatable, need to sort into destination buckets, or make messageAPI have an ALL units ID?
+this->lora_pack_engine(); //do something w/ p_transmit_queue and make it MessageAPI compatable, need to sort into destination buckets, or make messageAPI have an ALL units ID?
 //send packed
 for( )
 //wait for ack
@@ -215,71 +218,67 @@ for( )
 *
 *********************************************************************/
 template <int M>
-tx_message core::mailbox<M>::pack_engine
+tx_message core::mailbox<M>::lora_pack_engine
 	(
 	void
 	)
 {
-//consider making a priority queue for higher priority messages? and/or based on size? that way we can pack as many items in here? that would optimize it for sure
-tx_message return_msg;
+/*----------------------------------------------------------
+Local variables
+----------------------------------------------------------*/
+tx_message  return_msg;
+bool        message_full;
+int         current_index;
+int         data_size;
+letter_name letter_index;
 
-//init data 
+/*----------------------------------------------------------
+Local constants
+----------------------------------------------------------*/
+const std::unordered_map< data_type, int > data_size_map = { { FLOAT_32_TYPE : 4 }
+															 { UINT_32_TYPE  : 4 },
+															 { BOOLEAN_TYPE :  1 } };
+
+/*----------------------------------------------------------
+Init variables
+----------------------------------------------------------*/
 memset( &return_msg, 0, sizeof( tx_message ) );
 return_msg.destination = MODULE_NONE;
+message_full           = false;
+current_index          = 0;
+data_size              = 0;
+letter_index           = LETTER_NONE;
 
-
-
-tx_tr = return_msg.size;
-for( auto letter : p_transmit_queue ) //CANNOT DO THIS! poping from queue will mess this up so we need to just use queue size and.or itr geting to big
+/*----------------------------------------------------------
+loop untill Tx queue is empty or tx_message is full
+----------------------------------------------------------*/
+while( p_transmit_queue.size() > 0 || message_full )
 	{
-	auto current_letter = letter.top();
+	/*------------------------------------------------------
+	loop untill Tx queue is empty or tx_message is full
+	------------------------------------------------------*/
+	letter_index   = p_transmit_queue.front();
+	mailbox_type& current_letter = p_mailbox_ref[ letter_index ];
 
-	//every data needs size+1 to transmit. the +1 is the identifier byte that preceeds the dat
-	if(  size_map[ current_letter.type ] + tx_tr >=  MAX_MSG_LENGTH )
+	data_size = data_size_map[ current_letter.type ];
+
+	if( current_index + data_size + 1 > MAX_LORA_MSG_SIZE )
 		{
-		break; //reached the end of the sizing 
+		message_full = true;
+		continue;
 		}
 
-	return_msg[tx_itr++] = 0;//need to figure out index, maybe queue should be index's?
-	tx_tr += size_map[ current_letter.type ];
+	//place 
 
-	//shift into location
-	switch ( current_letter.type)
-		{
-		case FLOAT_32_TYPE:
-		//intentional fallthrough
-		case UINT_32_TYPE:
-			for( int i = 0; i < size_map[ current_letter.type ]; i++ )
-				{
-				return_msg[ tx_itr++ ] = current_letter.data.unit8_access[i];
-				}
-			break;
-		case BOOLEAN_TYPE:
-			return_msg[ tx_itr++ ] = (uint8_t)current_letter.data.boolean;
-		default:
-			console.add_assert( "Unsupported type defined in global mailbox" );
-		}
+	//memcopy
+	memcpy( tx_message.message[current_index], letter.data, data_size );
 
-
-
-	if( return_msg.destination != current_letter.destination )
-		{
-		if( return_msg.destination == MODULE_NONE )
-			{
-			return_msg.destination = current_letter.destination;
-			}
-		else
-			{ //if we have set the desntiation and match 
-			return_msg.destination = MODULE_ALL;
-			}
-		}
+	current_index += data_size;
 
 	p_transmit_queue.pop();
+	}
 
-	} //continue through untill we run out of space
-
-
-return return_msg;
+return tx_message;
 }
 
 

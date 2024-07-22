@@ -13,13 +13,14 @@ mailbox_type global_mailbox[] =
 typedef enum letter_name
     {
     EXAMPLE_INT_MSG,
-    EXAMPLE_FLT_MSG
+    EXAMPLE_FLT_MSG,
 
 
-    NUM_LETTERS
+    NUM_LETTERS,
+    LETTER_NONE
     };
 //max length limited to uint_8t size
 
 
 
-core::mailbox( global_mailbox, NUM_MSG );
+core::mailbox<NUM_LETTERS>( global_mailbox);

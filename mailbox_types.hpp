@@ -14,7 +14,9 @@
 #include "sys_def.h"
 
 #include "messageAPI.hpp"
+
 #include <unordered_map>
+#include <stdint.h>
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -32,28 +34,55 @@ typedef union
     float        flt;
     int          integer;
     bool         boolean;
-    unit8_t      uint8_access[4];
+    uint8_t      raw_data[4];
 }data_union;
 
-typedef enum
+enum struct data_type
 {
     FLOAT_32_TYPE,
     UINT_32_TYPE,
     BOOLEAN_TYPE,
-    
 
     NUM_TYPES
-}data_type;
+};
+
+enum struct flag_type
+{
+    NO_FLAG,
+    TRANSMIT_FLAG,
+    RECEIVE_FLAG,
+
+    NUM_FLAGS
+};
+
+
+enum struct update_rate
+{
+    RT_100_MS,
+    RT_500_MS,
+    RT_1_S,
+    RT_ASYNC,
+
+    NUM_UPDATE_RATES
+};
+
+enum struct direction 
+{
+    TX,
+    RX,
+
+    NUM_DIRECTINS
+};
 
 //mapping of sizes to how many u8 they would take up
-cont std::unordered_map< data_type, int> size_map
+const std::unordered_map< data_type, int> size_map
     {
-    { FLOAT_32_TYPE, 4 },
-    { UINT_32_TYPE,  4 },
-    { BOOLEAN_TYPE,  1 }
+    { data_type::FLOAT_32_TYPE, 4 },
+    { data_type::UINT_32_TYPE,  4 },
+    { data_type::BOOLEAN_TYPE,  1 }
     };
 
-std::static_assert( size_map.size() != NUM_TYPES );
+
 
 // typedef enum
 // {
@@ -62,33 +91,7 @@ std::static_assert( size_map.size() != NUM_TYPES );
 //     NUM_ENGINES
 // }engine_type;
 
-typedef enum
-{
-    NO_FLAG,
-    TRANSMIT_FLAG,
-    RECEIVE_FLAG,
 
-    NUM_FLAGS
-} flag_type;
-
-
-typedef enum
-{
-    100_MS,
-    500_MS,
-    1_S,
-    ASYNC,
-
-    NUM_UPDATE_RATES
-} update_rate;
-
-typedef enum 
-{
-    TX,
-    RX
-
-    NUM_DIRECTINS
-} direction;
 
 
 typedef struct
