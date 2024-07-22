@@ -16,9 +16,14 @@
 #include "mailbox.hpp"
 #include "mailbox_map.hpp"
 #include "messageAPI.hpp"
+#include "mailbox_types.hpp"
+
 
 #include <functional>
 #include <type_traits> //for static assert
+#include <unordered_map>
+
+#include <console.hpp>
 
 
 
@@ -42,7 +47,7 @@
                               EXTERNS
 --------------------------------------------------------------------*/
 extern core::console console;
-
+extern const location current_location;
 /*--------------------------------------------------------------------
                               VARIABLES
 --------------------------------------------------------------------*/
@@ -109,20 +114,24 @@ void core::mailbox<M>::mailbox_runtime( void )
 {
 int i;
 bool process;
-const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS : [](int clk ){ return true;  }                                      },
-																		 		  { update_rate::RT_500_MS : [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
-																				  { update_rate::RT_1_S    : [](int clk ){ return ( clk == 0 );  }                              },
-																				  { update_rate::RT_ASYNC  : [](int clk ){ return true;  }                                      }
-                                                                                };
+
 i       = 0;
 process = false;
+const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS , [](int clk ){ return true;  }                                      },
+																		 		  { update_rate::RT_500_MS , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
+																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
+																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
+                                                                                };
 
-// p_transmit_queue.empty();
 
-for( i = 0; i < p_mailbox_size; i++ )
+mailbox_type* current_mailbox = &p_mailbox_ref; //references cannot be indexed
+//transmit entire mailbox list
+for( i = 0; i < M; i++ )
     {
-
-	process = process_map[ p_mailbox_ref[ i ].upt_rt ]( p_internal_clk);
+		//bc map is const you need to use find 
+    auto itr = process_map.find( current_mailbox[i].upt_rt );
+    if( itr != process_map.end() )
+        itr->second( p_internal_clk );
 
 	//move onto next if not time to process
 	if( process == false )
@@ -130,14 +139,16 @@ for( i = 0; i < p_mailbox_size; i++ )
 		continue;
 		}
 
-	switch( p_mailbox_ref[ i ].dir )
+	switch( current_mailbox[ i ].dir )
 		{
-		case TX:
-			this->process_tx( p_mailbox_ref[ i ] );
+		case direction::TX:
+			this->process_tx( current_mailbox[ i ] );
 			break;
-		case RX:
-			this->process_rx( p_mailbox_ref[ i ] );
+
+		case direction::RX:
+			this->process_rx( current_mailbox[ i ] );
 			break;
+
 		default:
 			console.add_assert( "mailbox dir incorrectly configured" );
 			break;
@@ -161,7 +172,7 @@ void core::mailbox<M>::process_tx
 	mailbox_type& letter 
 	)
 {
-if( source != current_unit )
+if( letter.source != current_location )
 	return;
 
 //add to transmit queue if needing to be transmitted. thinking 
@@ -173,7 +184,7 @@ void core::mailbox<M>::process_rx
 	mailbox_type& letter 
 	)
 {
-if( destination != current_location )
+if( letter.destination != current_location )
 	return;
 }
 
@@ -195,7 +206,6 @@ void core::mailbox::transmit_engine
 
 this->lora_pack_engine(); //do something w/ p_transmit_queue and make it MessageAPI compatable, need to sort into destination buckets, or make messageAPI have an ALL units ID?
 //send packed
-for( )
 //wait for ack
 //update msgAPI Key
 
@@ -235,9 +245,9 @@ letter_name letter_index;
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
-const std::unordered_map< data_type, int > data_size_map = { { FLOAT_32_TYPE : 4 }
-															 { UINT_32_TYPE  : 4 },
-															 { BOOLEAN_TYPE :  1 } };
+const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_32_TYPE , 4 },
+															 { data_type::UINT_32_TYPE  , 4 },
+															 { data_type::BOOLEAN_TYPE  , 1 } };
 
 /*----------------------------------------------------------
 Init variables
@@ -258,9 +268,14 @@ while( p_transmit_queue.size() > 0 || message_full )
 	loop untill Tx queue is empty or tx_message is full
 	------------------------------------------------------*/
 	letter_index   = p_transmit_queue.front();
-	mailbox_type& current_letter = p_mailbox_ref[ letter_index ];
+	// mailbox_type& current_letter = p_mailbox_ref[ letter_index ];
+	mailbox_type& current_letter = &p_mailbox_ref + ( sizeof(mailbox_type) * letter_index);
 
-	data_size = data_size_map[ current_letter.type ];
+	/*------------------------------------------------------
+	Aquire data size
+	------------------------------------------------------*/
+    auto itr = data_size_map.find( current_letter.type );
+    data_size = itr->second;
 
 	if( current_index + data_size + 1 > MAX_LORA_MSG_SIZE )
 		{
@@ -279,6 +294,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 	}
 
 return tx_message;
+
 }
 
 

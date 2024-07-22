@@ -21,10 +21,6 @@ enum struct letter_name
     NUM_LETTERS,
     LETTER_NONE
     };
-//max length limited to uint_8t size
-
-
-
-// core::mailbox<NUM_LETTERS>( global_mailbox);
+//max size is uint8t
 
 #endif
