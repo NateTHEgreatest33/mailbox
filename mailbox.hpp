@@ -19,6 +19,7 @@
 #include "mailbox_map.hpp"
 
 #include <unordered_map>
+#include <array>
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -57,13 +58,14 @@ template<int M>
 class mailbox  //suggestion to use templates to pass in mailbox_size and thus be able to use arrays
     {
     public:
-        mailbox( mailbox_type& global_mailbox );
+        mailbox( std::array<mailbox_type, M>& global_mailbox );
         void mailbox_runtime( void );
         data_union mailbox_access( int global_mbx_indx );
         ~mailbox( void );
 
     private:
-        mailbox_type& p_mailbox_ref;
+        // mailbox_type& p_mailbox_ref;
+        std::array<mailbox_type, M>& p_mailbox_ref;
         int p_internal_clk;
         // std::queue<mailbox_type&> p_transmit_queue; //should this become std::array instead? OR a priority queue, either one
         utl::queue<M, letter_name> p_transmit_queue;

@@ -72,7 +72,7 @@ mailbox()
 *
 *********************************************************************/
 template <int M>
-core::mailbox<M>::mailbox( mailbox_type& global_mailbox )
+core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
     {
 
 	// std::static_assert( size_map.size() != NUM_TYPES );
