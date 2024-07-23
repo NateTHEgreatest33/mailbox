@@ -112,9 +112,11 @@ core::mailbox<M>::~mailbox( void )
 
 
 template <int M>
-void core::mailbox<M>::lora_unpack_engine( rx_message msg )
+void core::mailbox<M>::lora_unpack_engine( const rx_message msg )
 {
 int msg_index = 0;
+
+//need to determine if frame is an ACK or not
 
 //parse through message
 while( msg_index < msg.size )
@@ -145,7 +147,7 @@ while( msg_index < msg.size )
 	memcpy( &data, msg.message[msg_index], data_size );
 
 	/*------------------------------------------------------
-	Handle Data
+	Handle Data and place into proper location
 	------------------------------------------------------*/
 	this->process_rx( mailbox_index, data );
 
@@ -178,6 +180,8 @@ if( messageAPI.get_message( &rtn_message, errors) )
 	{
 	this->lora_unpack_engine( rtn_message );
 
+	//send ACK
+	
 	}
 //console report if errors present
 
@@ -339,6 +343,12 @@ while( !p_transmit_queue.is_empty() )
 	{
 	tx_message lora_frame = lora_pack_engine();
 	messageAPI.send_message( lora_frame );
+
+	//wait for ACK?
+	//ack thoughts - if MSG ALL, only ack from lowest ID unit
+	//               if MSG destination, ack from whoever it was
+	//                ack should update key?
+
 	}
 
 //FUTURE UPDATES:
