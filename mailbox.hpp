@@ -59,7 +59,8 @@ class mailbox
     {
     public:
         mailbox( std::array<mailbox_type, M>& global_mailbox );
-        void mailbox_runtime( void );
+        void rx_runtime( void );
+        void tx_runtime( void );
         data_union access( int global_mbx_indx );
         bool update( data_union d, int global_mbx_indx );
         ~mailbox( void );
@@ -68,12 +69,14 @@ class mailbox
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_internal_clk;
         utl::queue<M, mbx_index> p_transmit_queue;
+        // utl::queue<M, data_union
 
 
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
+        void lora_unpack_engine( rx_message msg );
         void unpack_engine(rx_message);
         void process_tx( mbx_index index );
-        void process_rx( mbx_index index );
+        void process_rx( mbx_index index, data_union data );
         void transmit_engine( void );
         void receive_engine( void );
 

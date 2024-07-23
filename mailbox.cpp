@@ -38,6 +38,7 @@
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
 #define MAX_SIZE_GLOBAL_MAILBOX (256) //this is because the identfier needs to fit within a unint8t so max size - 256
+
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -45,7 +46,15 @@
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
 --------------------------------------------------------------------*/
+const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS , [](int clk ){ return true;  }                                      },
+																		 		  { update_rate::RT_500_MS , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
+																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
+																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
+                                                                                };
 
+const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_32_TYPE , 4 },
+															 { data_type::UINT_32_TYPE  , 4 },
+															 { data_type::BOOLEAN_TYPE  , 1 } };
 /*--------------------------------------------------------------------
                               EXTERNS
 --------------------------------------------------------------------*/
@@ -102,11 +111,82 @@ core::mailbox<M>::~mailbox( void )
 	}
 
 
+template <int M>
+void core::mailbox<M>::lora_unpack_engine( rx_message msg )
+{
+int msg_index = 0;
+
+//parse through message
+while( msg_index < msg.size )
+	{
+	mbx_index mailbox_index = msg.message[msg_index];
+	msg_index++;
+
+	mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
+
+	/*------------------------------------------------------
+	Aquire data size. This must be done using *.find() due
+	to the fact that the std::map is defined as const
+	------------------------------------------------------*/
+	auto itr = data_size_map.find( current_mailbox.type );
+	// if( itr == data_size_map.end() )
+	// 	{
+	// 	// console.add_assert( "map was called with invalid key");
+	// 	memset( &return_msg, 0, sizeof( tx_message ) );
+	// 	return return_msg;
+	// 	}
+
+	int data_size = itr->second;
+
+	/*------------------------------------------------------
+	memcpy data into union
+	------------------------------------------------------*/
+	data_union data;
+	memcpy( &data, msg.message[msg_index], data_size );
+
+	/*------------------------------------------------------
+	Handle Data
+	------------------------------------------------------*/
+	this->process_rx( mailbox_index, data );
+
+	/*------------------------------------------------------
+	Update msg_index
+	------------------------------------------------------*/
+	msg_index += data_size;
+	}
+}
+
 
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       core::mailbox::mailbox_runtime()
+*       core::mailbox::rx_runtime()
+*
+*   DESCRIPTION:
+*       this to be run significatly faster than tx_runtime. Because of
+*		the design of loraAPI and messageAPI, we need to constantly be
+*		checking for new messages.
+*
+*********************************************************************/
+template <int M>
+void core::mailbox<M>::rx_runtime( void )
+{
+rx_message rtn_message;
+message_errors errors;
+
+if( messageAPI.get_message( &rtn_message, errors) )
+	{
+	this->lora_unpack_engine( rtn_message );
+
+	}
+//console report if errors present
+
+}
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::tx_runtime()
 *
 *   DESCRIPTION:
 *       this to be run every 100ms (fastest update rate) to handle
@@ -114,27 +194,19 @@ core::mailbox<M>::~mailbox( void )
 *
 *********************************************************************/
 template <int M>
-void core::mailbox<M>::mailbox_runtime( void )
+void core::mailbox<M>::tx_runtime( void )
 {
 int i;
 bool process;
 
 i       = 0;
 process = false;
-const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS , [](int clk ){ return true;  }                                      },
-																		 		  { update_rate::RT_500_MS , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
-																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
-																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
-                                                                                };
-
-
-//needs to be run here
-this->receive_engine();
-
 
 for( i = 0; i < M; i++ )
     {
-	
+	if( p_mailbox_ref[i].dir != direction::TX )
+		continue;
+
 	//bc map is const you need to use find 
     auto itr = process_map.find( p_mailbox_ref[i].upt_rt );
     if( itr == process_map.end() )
@@ -147,24 +219,10 @@ for( i = 0; i < M; i++ )
 
 	//move onto next if not time to process
 	if( process == false )
-		{
 		continue;
-		}
+	
+	this->process_rx( i );
 
-	switch( p_mailbox_ref[ i ].dir )
-		{
-		case direction::TX:
-			this->process_tx( i );
-			break;
-
-		case direction::RX:
-			this->process_rx( i );
-			break;
-
-		default:
-			// console.add_assert( "mailbox dir incorrectly configured" );
-			break;
-		}
 
 	
     }
@@ -176,7 +234,7 @@ p_internal_clk = ( p_internal_clk + 100 ) % 1000;
 if( p_internal_clk == 0 )
 	this->transmit_engine();
 
-} /* mailbox:mailbox_runtime() */
+} /* core::mailbox:mailbox_runtime() */
 
 
 
@@ -226,9 +284,26 @@ p_transmit_queue.push( index );
 template <int M>
 void core::mailbox<M>::process_rx
 	( 
-	mbx_index index
+	mbx_index index,
+	data_union data
 	)
 {
+/*----------------------------------------------------------
+Local variables
+----------------------------------------------------------*/
+mailbox_type& current_mailbox = p_mailbox_ref[ index ];
+
+/*----------------------------------------------------------
+Update data
+----------------------------------------------------------*/
+current_mailbox.data = data;
+
+/*----------------------------------------------------------
+if ASYNC update flag
+----------------------------------------------------------*/
+if( current_mailbox.upt_rt == update_rate::RT_ASYNC )
+	current_mailbox.flag = flag_type::RECEIVE_FLAG;
+
 } /* core::mailbox<M>::process_rx */
 
 /*********************************************************************
@@ -307,9 +382,7 @@ mbx_index mailbox_index;
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
-const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_32_TYPE , 4 },
-															 { data_type::UINT_32_TYPE  , 4 },
-															 { data_type::BOOLEAN_TYPE  , 1 } };
+
 
 /*----------------------------------------------------------
 Init variables
