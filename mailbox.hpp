@@ -72,9 +72,11 @@ class mailbox
 
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
         void unpack_engine(rx_message);
-        void process_tx( mailbox_type& letter );
-        void process_rx( mailbox_type& letter );
+        void process_tx( mbx_index index );
+        void process_rx( mbx_index index );
         void transmit_engine( void );
+        void receive_engine( void );
+
 
 
 

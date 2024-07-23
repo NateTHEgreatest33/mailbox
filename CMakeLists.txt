@@ -15,9 +15,11 @@ add_library( mailboxAPI
     )
 
 target_link_libraries( mailboxAPI
-  pico_stdlib 
+  # pico_stdlib 
+
   messageAPI
   utilLib
+  consoleAPI
 
   # Using Pico W
   pico_cyw43_arch_none
