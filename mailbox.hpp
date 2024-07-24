@@ -32,6 +32,14 @@
 /*--------------------------------------------------------------------
                             TYPES/ENUMS
 --------------------------------------------------------------------*/
+enum struct rtn_type { data, ack, num_rtn_type };
+typedef struct msgAPI_rx
+	{
+    msgAPI_rx( rtn_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
+	rtn_type r;
+	mbx_index i;
+	data_union d;
+	}; //if index == 0xFF --> ack
 
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
@@ -70,6 +78,7 @@ class mailbox
         int p_internal_clk;
         utl::queue<M, mbx_index> p_transmit_queue;
         utl::queue<M, mbx_index> p_awaiting_ack;
+        utl::queue<M, msgAPI_rx> p_rx_queue;
         // utl::queue<M, data_union
 
 
@@ -79,7 +88,7 @@ class mailbox
         void process_tx( mbx_index index );
         void process_rx( mbx_index index, data_union data );
         void transmit_engine( void );
-        void receive_engine( void );
+        // void receive_engine( void );
 
 
 

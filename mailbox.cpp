@@ -39,6 +39,7 @@
 --------------------------------------------------------------------*/
 #define MAX_SIZE_GLOBAL_MAILBOX (256) //this is because the identfier needs to fit within a unint8t so max size - 256
 
+#define MSG_ACK_ID (0xff)
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -116,11 +117,21 @@ void core::mailbox<M>::lora_unpack_engine( const rx_message msg )
 {
 int msg_index = 0;
 
-//need to determine if frame is an ACK or not
 
 //parse through message
 while( msg_index < msg.size )
 	{
+
+	if( msg.message[msg_index] == MSG_ACK_ID )
+		{
+		msg_index++; //get to data
+		dat_union d;
+		msgAPI_rx rx_data( rtn_type::ack, std::static_cast<mbx_index>( msg.message[msg_index] ), d );
+		p_rx_queue.push( rx_data );
+		msg_index++;
+		continue;
+		}
+
 	mbx_index mailbox_index = msg.message[msg_index];
 	msg_index++;
 
@@ -146,10 +157,16 @@ while( msg_index < msg.size )
 	data_union data;
 	memcpy( &data, msg.message[msg_index], data_size );
 
+	// /*------------------------------------------------------
+	// Handle Data and place into proper location
+	// ------------------------------------------------------*/
+	// this->process_rx( mailbox_index, data );
+
 	/*------------------------------------------------------
-	Handle Data and place into proper location
+	Add data to queue
 	------------------------------------------------------*/
-	this->process_rx( mailbox_index, data );
+	msgAPI_rx rx_data( rtn_type::data, mailbox_index, data );
+	p_rx_queue.push( rx_data );
 
 	/*------------------------------------------------------
 	Update msg_index
@@ -178,11 +195,41 @@ message_errors errors;
 
 if( messageAPI.get_message( &rtn_message, errors) )
 	{
-	this->lora_unpack_engine( rtn_message );
-
-	//send ACK
-	
+	this->lora_unpack_engine( rtn_message );	
 	}
+
+//handle p_rx_queue()
+while( !p_rx_queue.is_empty() )
+	{
+	msgAPI_rx temp = p_rx_queue.front();
+
+	switch( temp.r )
+		{
+		case rtn_type::data:
+			this->process_rx( temp.i, temp.d );
+			//add ack to tx queue HERE if logic would applu
+			break;
+		case rtn_type::ack:
+			if( p_awaiting_ack.size() > 0 && p_awaiting_ack.front() == temp.i )
+				{
+				p_awaiting_ack.pop();
+				}
+			else
+				{
+				//console.add_assert( "ack rx'ed out of order" );
+				p_awaiting_ack.empty();
+				}
+			break;
+		default:
+			//console.add_assert( "malformed return type" );
+			break;
+		}
+
+	p_rx_queue.pop();
+
+
+	}
+
 //console report if errors present
 
 }
@@ -488,8 +535,8 @@ return return_msg;
 template <int M>
 bool core::mailbox<M>::update( data_union d, int global_mbx_indx ){ return true; }
 
-template <int M>
-void core::mailbox<M>::receive_engine( void ){}
+// template <int M>
+// void core::mailbox<M>::receive_engine( void ){}
 //idea here is that we would run this and pull/update
 
 /*
