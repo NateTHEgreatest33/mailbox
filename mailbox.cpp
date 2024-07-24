@@ -157,17 +157,21 @@ while( msg_index < msg.size )
 	data_union data;
 	memcpy( &data, msg.message[msg_index], data_size );
 
-	// /*------------------------------------------------------
-	// Handle Data and place into proper location
-	// ------------------------------------------------------*/
-	// this->process_rx( mailbox_index, data );
-
 	/*------------------------------------------------------
-	Add data to queue
+	Determine if data was meant for us or was just packaged
+	on a destination ALL message. If it is meant for us, add
+	to queue
 	------------------------------------------------------*/
-	msgAPI_rx rx_data( rtn_type::data, mailbox_index, data );
-	p_rx_queue.push( rx_data );
-
+	if( current_mailbox.destination == current_location || 
+	    current_mailbox.destination == MODULE_ALL          )
+		{
+		/*--------------------------------------------------
+		Add data to queue
+		--------------------------------------------------*/
+		msgAPI_rx rx_data( rtn_type::data, mailbox_index, data );
+		p_rx_queue.push( rx_data );
+		}
+		
 	/*------------------------------------------------------
 	Update msg_index
 	------------------------------------------------------*/
