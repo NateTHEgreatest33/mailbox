@@ -223,8 +223,16 @@ while( !p_rx_queue.is_empty() )
 				//console.add_assert( "un-requested ack received");
 			else
 				p_awaiting_ack[temp.i] = false;
-				//how do we tell if we have waited too long to be acked?
-				//every 1s maybe do an ack verify?
+
+				//every 1s maybe do an ack verify <-- yes ack verify happens the tx_process AFTER sent
+
+				//send ack msg HERE!!!!
+				/* acks should be sent immidently, otherwise we can be in a state where we get 10000x messages in.
+				alternativley we fix the issue in Lora (or msg api?) and allow for more data to be sent? but also Im not sure
+				
+				*/
+
+
 			break;
 		default:
 			//console.add_assert( "malformed return type" );
@@ -280,8 +288,6 @@ for( i = 0; i < M; i++ )
 	
 	this->process_rx( i );
 
-
-	
     }
 
 //update clock w/ rollover 
@@ -414,10 +420,7 @@ while( !p_transmit_queue.is_empty() )
 	tx_message lora_frame = lora_pack_engine();   //this needs to be reworked for adding acks, but ack format is WAY different than a normal format so need to think what the right way is here, maybe a tx struct?
 	messageAPI.send_message( lora_frame );
 
-	//wait for ACK?
-	//ack thoughts - if MSG ALL, only ack from lowest ID unit
-	//               if MSG destination, ack from whoever it was
-	//                ack should update key?
+
 
 	}
 
@@ -549,6 +552,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 	/*------------------------------------------------------
 	add data to ack queue
 	------------------------------------------------------*/
+	p_awaiting_ack[current_index] = true;
 	p_ack_queue.push( mailbox_index );
 
 	/*------------------------------------------------------
