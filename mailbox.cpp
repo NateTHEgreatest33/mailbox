@@ -95,6 +95,11 @@ core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
 	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
     p_mailbox_ref = global_mailbox;
     p_internal_clk = 0;
+
+	for( int i = 0 ; i < M, i++ )
+		{
+		p_awaiting_ack[i] = false;
+		}
     }
 
 /*********************************************************************
@@ -214,15 +219,12 @@ while( !p_rx_queue.is_empty() )
 			//add ack to tx queue HERE if logic would applu
 			break;
 		case rtn_type::ack:
-			if( p_awaiting_ack.size() > 0 && p_awaiting_ack.front() == temp.i )
-				{
-				p_awaiting_ack.pop();
-				}
+			if( !p_awaiting_ack[temp.i] )
+				//console.add_assert( "un-requested ack received");
 			else
-				{
-				//console.add_assert( "ack rx'ed out of order" );
-				p_awaiting_ack.empty();
-				}
+				p_awaiting_ack[temp.i] = false;
+				//how do we tell if we have waited too long to be acked?
+				//every 1s maybe do an ack verify?
 			break;
 		default:
 			//console.add_assert( "malformed return type" );
@@ -387,12 +389,29 @@ Local variables
 /*----------------------------------------------------------
 Init variables
 ----------------------------------------------------------*/
+
+/*----------------------------------------------------------
+Verify and clear ack queue
+----------------------------------------------------------*/
+while( !p_ack_queue.empty() )
+	{
+	mbx_index current_index = p_ack_queue.front();
+	
+	if( p_awaiting_ack[current_index] != false )
+		{
+		std::string assert = "message failed to ack: " + std::string(p_awaiting_ack);
+		console.add_assert( assert );
+		}
+
+	p_ack_queue.pop();
+	}
+
 /*----------------------------------------------------------
 Empty trasmit queue and tx over messageAPI
 ----------------------------------------------------------*/
 while( !p_transmit_queue.is_empty() )
 	{
-	tx_message lora_frame = lora_pack_engine();
+	tx_message lora_frame = lora_pack_engine();   //this needs to be reworked for adding acks, but ack format is WAY different than a normal format so need to think what the right way is here, maybe a tx struct?
 	messageAPI.send_message( lora_frame );
 
 	//wait for ACK?
@@ -401,6 +420,9 @@ while( !p_transmit_queue.is_empty() )
 	//                ack should update key?
 
 	}
+
+
+
 
 //FUTURE UPDATES:
 //send packed
@@ -525,9 +547,15 @@ while( p_transmit_queue.size() > 0 || message_full )
 	current_index += data_size;
 
 	/*------------------------------------------------------
+	add data to ack queue
+	------------------------------------------------------*/
+	p_ack_queue.push( mailbox_index );
+
+	/*------------------------------------------------------
 	pop front of transmit queue
 	------------------------------------------------------*/
 	p_transmit_queue.pop();
+	
 	}
 
 /*----------------------------------------------------------

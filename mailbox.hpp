@@ -77,7 +77,8 @@ class mailbox
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_internal_clk;
         utl::queue<M, mbx_index> p_transmit_queue;
-        utl::queue<M, mbx_index> p_awaiting_ack;
+        utl::queue<M, mbx_index> p_ack_queue;
+        std::array<bool, M> p_awaiting_ack;
         utl::queue<M, msgAPI_rx> p_rx_queue;
         // utl::queue<M, data_union
 
