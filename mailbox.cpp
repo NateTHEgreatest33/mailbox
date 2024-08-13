@@ -127,6 +127,9 @@ int msg_index = 0;
 while( msg_index < msg.size )
 	{
 
+	/*------------------------------------------------------
+	Handle message if it is an ack
+	------------------------------------------------------*/
 	if( msg.message[msg_index] == MSG_ACK_ID )
 		{
 		msg_index++; //get to data
@@ -134,53 +137,53 @@ while( msg_index < msg.size )
 		msgAPI_rx rx_data( rtn_type::ack, std::static_cast<mbx_index>( msg.message[msg_index] ), d );
 		p_rx_queue.push( rx_data );
 		msg_index++;
-		continue;
 		}
-
-	mbx_index mailbox_index = msg.message[msg_index];
-	msg_index++;
-
-	mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
-
 	/*------------------------------------------------------
-	Aquire data size. This must be done using *.find() due
-	to the fact that the std::map is defined as const
+	Handle message if it is actual data
 	------------------------------------------------------*/
-	auto itr = data_size_map.find( current_mailbox.type );
-	// if( itr == data_size_map.end() )
-	// 	{
-	// 	// console.add_assert( "map was called with invalid key");
-	// 	memset( &return_msg, 0, sizeof( tx_message ) );
-	// 	return return_msg;
-	// 	}
-
-	int data_size = itr->second;
-
-	/*------------------------------------------------------
-	memcpy data into union
-	------------------------------------------------------*/
-	data_union data;
-	memcpy( &data, msg.message[msg_index], data_size );
-
-	/*------------------------------------------------------
-	Determine if data was meant for us or was just packaged
-	on a destination ALL message. If it is meant for us, add
-	to queue
-	------------------------------------------------------*/
-	if( current_mailbox.destination == current_location || 
-	    current_mailbox.destination == MODULE_ALL          )
+	else
 		{
-		/*--------------------------------------------------
-		Add data to queue
-		--------------------------------------------------*/
-		msgAPI_rx rx_data( rtn_type::data, mailbox_index, data );
-		p_rx_queue.push( rx_data );
+		/*------------------------------------------------------
+		Aquire index, reference, and update index
+		------------------------------------------------------*/
+		mbx_index mailbox_index = msg.message[msg_index];
+		mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
+		msg_index++;
+
+		/*------------------------------------------------------
+		Aquire data size. This must be done using *.find() due
+		to the fact that the std::map is defined as const
+		------------------------------------------------------*/
+		auto itr = data_size_map.find( current_mailbox.type );
+		int data_size = itr->second;
+
+		/*------------------------------------------------------
+		memcpy data into union
+		------------------------------------------------------*/
+		data_union data;
+		memcpy( &data, msg.message[msg_index], data_size );
+
+		/*------------------------------------------------------
+		Determine if data was meant for us or was just packaged
+		on a destination ALL message. If it is meant for us, add
+		to queue
+		------------------------------------------------------*/
+		if( current_mailbox.destination == current_location || 
+			current_mailbox.destination == MODULE_ALL          )
+			{
+			/*--------------------------------------------------
+			Add data to queue
+			--------------------------------------------------*/
+			msgAPI_rx rx_data( rtn_type::data, mailbox_index, data );
+			p_rx_queue.push( rx_data );
+			}
+			
+		/*------------------------------------------------------
+		Update msg_index based upon data size
+		------------------------------------------------------*/
+		msg_index += data_size;
 		}
-		
-	/*------------------------------------------------------
-	Update msg_index
-	------------------------------------------------------*/
-	msg_index += data_size;
+
 	}
 }
 
@@ -286,7 +289,7 @@ for( i = 0; i < M; i++ )
 	if( process == false )
 		continue;
 	
-	this->process_rx( i );
+	this->process_tx( i );
 
     }
 
@@ -397,7 +400,9 @@ Init variables
 ----------------------------------------------------------*/
 
 /*----------------------------------------------------------
-Verify and clear ack queue
+Verify and clear ack queue. This is dont first in the
+engine so that we can fill this in again to verify for the 
+next round
 ----------------------------------------------------------*/
 while( !p_ack_queue.empty() )
 	{
