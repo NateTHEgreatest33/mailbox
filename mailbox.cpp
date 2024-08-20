@@ -223,6 +223,9 @@ while( !p_rx_queue.is_empty() )
 			//add rx'ed msg to ack list
 			msgAPI_tx tx_msg( msg_type::ack, temp.i );
 			p_transmit_queue.push( tx_msg );
+
+			//this SHOULD work, but i do worry that we may miss some acks by allowing tx_engine to pack acks and data alongside each other,
+			//I need to rework messageAPI to pull multi-messages from buffer
 			break;
 		case msg_type::ack:
 			if( !p_awaiting_ack[temp.i] )
