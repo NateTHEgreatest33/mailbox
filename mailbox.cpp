@@ -522,6 +522,9 @@ while( p_transmit_queue.size() > 0 || message_full )
 		continue;
 		}
 
+
+	location packet_dest = ( tx_msg.r == msg_type::ack ) ? current_mailbox.source : current_mailbox.destination;
+
 	/*------------------------------------------------------
 	Update data desination. If MODULE_NONE, than this is the
 	first time we have called this function, otherwise update
@@ -529,11 +532,11 @@ while( p_transmit_queue.size() > 0 || message_full )
 	------------------------------------------------------*/
 	if( return_msg.destination == MODULE_NONE )
 		{
-		return_msg.destination = current_mailbox.destination;
+		return_msg.destination = packet_dest;
 		}
 	else
 		{
-		if( return_msg.destination != current_mailbox.destination )
+		if( return_msg.destination != packet_dest )
 			{
 			return_msg.destination = MODULE_ALL;
 			}
