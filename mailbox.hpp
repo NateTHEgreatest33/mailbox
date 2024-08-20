@@ -32,14 +32,21 @@
 /*--------------------------------------------------------------------
                             TYPES/ENUMS
 --------------------------------------------------------------------*/
-enum struct rtn_type { data, ack, num_rtn_type };
+enum struct msg_type { data, ack, num_rtn_type };
 typedef struct msgAPI_rx
 	{
-    msgAPI_rx( rtn_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
-	rtn_type r;
+    msgAPI_rx( msg_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
+	msg_type r;
 	mbx_index i;
 	data_union d;
 	}; //if index == 0xFF --> ack
+
+typedef struct msgAPI_tx
+    {
+        msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
+        msg_type r;
+        mbx_index i;
+    };
 
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
@@ -76,13 +83,14 @@ class mailbox
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_internal_clk;
-        utl::queue<M, mbx_index> p_transmit_queue;
+        utl::queue<M, msgAPI_tx> p_transmit_queue;
         utl::queue<M, mbx_index> p_ack_queue;
         std::array<bool, M> p_awaiting_ack;
         utl::queue<M, msgAPI_rx> p_rx_queue;
         // utl::queue<M, data_union
 
 
+        // tx_message lora_ack_pack_engine( void );
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
         void lora_unpack_engine( const rx_message msg );
         void unpack_engine(rx_message);

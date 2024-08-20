@@ -20,6 +20,7 @@ enum struct mbx_index : uint8_t
 
     NUM_MAILBOX,
     MAILBOX_NONE,
+    
 
     };
 //max size is uint8t
