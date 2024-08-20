@@ -456,10 +456,10 @@ int         current_index;
 int         data_size;
 mbx_index   mailbox_index;
 msgAPI_tx   tx_msg;
+location packet_dest
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
-
 
 /*----------------------------------------------------------
 Init variables
@@ -472,6 +472,7 @@ message_full           = false;
 current_index          = 0;
 data_size              = 0;
 mailbox_index          = mbx_index::MAILBOX_NONE;
+packet_dest            = MODULE_NONE;
  
 /*----------------------------------------------------------
 loop untill Tx queue is empty or tx_message is full
@@ -522,8 +523,10 @@ while( p_transmit_queue.size() > 0 || message_full )
 		continue;
 		}
 
-
-	location packet_dest = ( tx_msg.r == msg_type::ack ) ? current_mailbox.source : current_mailbox.destination;
+	/*------------------------------------------------------
+	Determine destination based upon if item is an ack or data
+	------------------------------------------------------*/
+	packet_dest = ( tx_msg.r == msg_type::ack ) ? current_mailbox.source : current_mailbox.destination;
 
 	/*------------------------------------------------------
 	Update data desination. If MODULE_NONE, than this is the
