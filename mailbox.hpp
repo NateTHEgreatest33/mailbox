@@ -32,7 +32,7 @@
 /*--------------------------------------------------------------------
                             TYPES/ENUMS
 --------------------------------------------------------------------*/
-enum struct msg_type { data, ack, num_rtn_type };
+enum struct msg_type { data, update, ack, num_rtn_type };
 typedef struct msgAPI_rx
 	{
     msgAPI_rx( msg_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
@@ -82,7 +82,7 @@ class mailbox
 
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;
-        int p_internal_clk;
+        int p_round_cntr;
         utl::queue<M, msgAPI_tx> p_transmit_queue;
         utl::queue<M, mbx_index> p_ack_queue;
         std::array<bool, M> p_awaiting_ack;
@@ -95,9 +95,13 @@ class mailbox
         void lora_unpack_engine( const rx_message msg );
         void unpack_engine(rx_message);
         void process_tx( mbx_index index );
-        void process_rx( mbx_index index, data_union data );
+        void process_rx_data( mbx_index index, data_union data );
         void transmit_engine( void );
         // void receive_engine( void );
+
+        mbx_index verify_index( int idx );
+
+        int p_transmit_round; // tx round == local unit
 
 
 

@@ -56,14 +56,14 @@ enum struct flag_type
 };
 
 
-enum struct update_rate
+enum struct update_rate : int 
 {
-    RT_100_MS,
-    RT_500_MS,
-    RT_1_S,
-    RT_ASYNC,
+    RT_1_ROUND  = 1,
+    RT_5_ROUND  = 5,
+    RT_10_ROUND = 10,
+    RT_ASYNC    = 1,
 
-    NUM_UPDATE_RATES
+    NUM_UPDATE_RATES = 4
 };
 
 enum struct direction 

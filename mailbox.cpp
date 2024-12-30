@@ -37,9 +37,10 @@
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
-#define MAX_SIZE_GLOBAL_MAILBOX (256) //this is because the identfier needs to fit within a unint8t so max size - 256
+#define MAX_SIZE_GLOBAL_MAILBOX (254) //this is because the identfier needs to fit within a unint8t so max size - 256 minus ack id, update id
 
-#define MSG_ACK_ID (0xff)
+#define MSG_ACK_ID    (0xFF)
+#define MSG_UPDATE_ID (0xFE)
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -47,11 +48,17 @@
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
 --------------------------------------------------------------------*/
-const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_100_MS , [](int clk ){ return true;  }                                      },
-																		 		  { update_rate::RT_500_MS , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
-																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
-																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
-                                                                                };
+// const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_1_ROUND , [](int clk ){ return true;  }                                      },
+// 																		 		  { update_rate::RT_5_ROUND , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
+// 																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
+// 																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
+//                                                                                 };
+
+// const std::unordered_map< update_rate, int> process_map = { { update_rate::RT_1_ROUND, 1  },
+// 															{ update_rate::RT_5_ROUND, 5 },
+// 															{ update_rate::RT_1_ROUND, 10 },
+// 															{ update_rate::RT_ASYNC  , 1 }
+//                                                           };
 
 const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_32_TYPE , 4 },
 															 { data_type::UINT_32_TYPE  , 4 },
@@ -88,13 +95,13 @@ mailbox()
 template <int M>
 core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
     {
-
+	transmit_round = 0;
 	// std::static_assert( size_map.size() != NUM_TYPES );
 
 	// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
 	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
     p_mailbox_ref = global_mailbox;
-    p_internal_clk = 0;
+    p_round_cntr = 0;
 
 	for( int i = 0 ; i < M, i++ )
 		{
@@ -116,74 +123,142 @@ core::mailbox<M>::~mailbox( void )
 	{
 	}
 
-
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::lora_unpack_engine
+*
+*   DESCRIPTION:
+*       unpack messageAPI messages
+*
+*********************************************************************/
 template <int M>
-void core::mailbox<M>::lora_unpack_engine( const rx_message msg )
+void core::mailbox<M>::lora_unpack_engine
+	(
+	const rx_multi msg
+	)
 {
-int msg_index = 0;
+/*------------------------------------------------------
+Local Variables
+------------------------------------------------------*/
+int msg_data_index;
+int msg_index;
 
+/*------------------------------------------------------
+Initilize Local Variables
+------------------------------------------------------*/
+msg_data_index = 0;
+msg_index      = 0;
 
-//parse through message
-while( msg_index < msg.size )
+/*------------------------------------------------------
+Parse through all messages received
+------------------------------------------------------*/         	//data is packed [id][data....][id][data....]
+while( msg_index < msg.num_messages )
 	{
+	msg_data_index = 0;
+	rx_message& rx_msg = msg.messages[msg_index];
 
 	/*------------------------------------------------------
-	Handle message if it is an ack
-	------------------------------------------------------*/
-	if( msg.message[msg_index] == MSG_ACK_ID )
-		{
-		msg_index++; //get to data
-		dat_union d;
-		msgAPI_rx rx_data( msg_type::ack, std::static_cast<mbx_index>( msg.message[msg_index] ), d );
-		p_rx_queue.push( rx_data );
-		msg_index++;
-		}
-	/*------------------------------------------------------
-	Handle message if it is actual data
-	------------------------------------------------------*/
-	else
+	Parse through all packed messages within the single 
+	message
+	------------------------------------------------------*/   
+	while( msg_data_index < rx_msg.size )
 		{
 		/*------------------------------------------------------
-		Aquire index, reference, and update index
-		------------------------------------------------------*/
-		mbx_index mailbox_index = msg.message[msg_index];
-		mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
-		msg_index++;
-
-		/*------------------------------------------------------
-		Aquire data size. This must be done using *.find() due
-		to the fact that the std::map is defined as const
-		------------------------------------------------------*/
-		auto itr = data_size_map.find( current_mailbox.type );
-		int data_size = itr->second;
-
-		/*------------------------------------------------------
-		memcpy data into union
+		clear & setup data union
 		------------------------------------------------------*/
 		data_union data;
-		memcpy( &data, msg.message[msg_index], data_size );
+		data.int = 0;
 
 		/*------------------------------------------------------
-		Determine if data was meant for us or was just packaged
-		on a destination ALL message. If it is meant for us, add
-		to queue
+		Handle message if it is an ack
 		------------------------------------------------------*/
-		if( current_mailbox.destination == current_location || 
-			current_mailbox.destination == MODULE_ALL          )
+		if( rx_msg.message[msg_data_index] == MSG_ACK_ID )
 			{
-			/*--------------------------------------------------
-			Add data to queue
-			--------------------------------------------------*/
-			msgAPI_rx rx_data( msg_type::data, mailbox_index, data );
+			msg_data_index++; //get to data
+
+			//data is cleared beforehand
+			msgAPI_rx rx_data( msg_type::ack, this->verify_index(rx_msg.message[msg_data_index] ), data );
 			p_rx_queue.push( rx_data );
+
+			msg_data_index++; //move onto next message
+
 			}
-			
 		/*------------------------------------------------------
-		Update msg_index based upon data size
+		Handle message if it is a round update
 		------------------------------------------------------*/
-		msg_index += data_size;
+		else if( rx_msg.message[msg_data_index] == MSG_UPDATE_ID )
+			{
+			// trasmit_round = (trasmit_round + 1 ) % NUM_DESTINATIONS;
+			msg_data_index++; //get to data
+
+			data.int = rx_msg.message[msg_data_index];
+			msgAPI_rx rx_data( msg_type::update, MSG_UPDATE_ID, data );
+			p_rx_queue.push( rx_data );
+
+			//update past update
+			msg_data_index++;
+			}
+		/*------------------------------------------------------
+		Handle message if it is actual data
+		------------------------------------------------------*/
+		else
+			{
+			/*------------------------------------------------------
+			Aquire index and verify index
+			------------------------------------------------------*/
+			mbx_index mailbox_index = this->verify_index( rx_msg.message[msg_data_index] );
+
+			msg_data_index++; //get to data section
+
+			if( mbx_index == mbx_index::MAILBOX_NONE )
+				{
+				//error handle & exit
+				}
+
+			/*------------------------------------------------------
+			Aquire mailbox from index
+			------------------------------------------------------*/
+			mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
+
+			/*------------------------------------------------------
+			Aquire data size. This must be done using *.find() due
+			to the fact that the std::map is defined as const
+			------------------------------------------------------*/
+			auto itr = data_size_map.find( current_mailbox.type );
+			int data_size = itr->second;
+
+			/*------------------------------------------------------
+			memcpy data into union
+			------------------------------------------------------*/
+			memcpy( &data, msg.message[msg_data_index], data_size );
+
+			/*------------------------------------------------------
+			Determine if data was meant for us or was just packaged
+			on a destination ALL message. If it is meant for us, add
+			to queue
+			------------------------------------------------------*/
+			if( current_mailbox.destination == current_location || 
+				current_mailbox.destination == MODULE_ALL          )
+				{
+				/*--------------------------------------------------
+				Add data to queue
+				--------------------------------------------------*/
+				msgAPI_rx rx_data( msg_type::data, mailbox_index, data );
+				p_rx_queue.push( rx_data );
+				}
+				
+			/*------------------------------------------------------
+			Update msg_data_index based upon data size
+			------------------------------------------------------*/
+			msg_data_index += data_size;
+			}
 		}
 
+	/*------------------------------------------------------
+	Move onto next message
+	------------------------------------------------------*/
+	msg_index++;
 	}
 }
 
@@ -202,13 +277,16 @@ while( msg_index < msg.size )
 template <int M>
 void core::mailbox<M>::rx_runtime( void )
 {
-rx_message rtn_message;
-message_errors errors;
+rx_multi rx_data;
 
-if( messageAPI.get_message( &rtn_message, errors) )
-	{
-	this->lora_unpack_engine( rtn_message );	
-	}
+rx_data = messageAPI.get_multi_message();
+
+//fast exit
+if( rx_data.num_messages == 0 )
+	return;
+
+//unpack data
+this->lora_unpack_engine( rx_data );	
 
 //handle p_rx_queue()
 while( !p_rx_queue.is_empty() )
@@ -218,15 +296,13 @@ while( !p_rx_queue.is_empty() )
 	switch( temp.r )
 		{
 		case msg_type::data:
-			this->process_rx( temp.i, temp.d );
+			this->process_rx_data( temp.i, temp.d );
 
 			//add rx'ed msg to ack list
 			msgAPI_tx tx_msg( msg_type::ack, temp.i );
 			p_transmit_queue.push( tx_msg );
-
-			//this SHOULD work, but i do worry that we may miss some acks by allowing tx_engine to pack acks and data alongside each other,
-			//I need to rework messageAPI to pull multi-messages from buffer
 			break;
+
 		case msg_type::ack:
 			if( !p_awaiting_ack[temp.i] )
 				//console.add_assert( "un-requested ack received");
@@ -234,7 +310,10 @@ while( !p_rx_queue.is_empty() )
 				p_awaiting_ack[temp.i] = false;
 
 				//every 1s maybe do an ack verify <-- yes ack verify happens the tx_process AFTER sent
+			break;
 
+		case msg_type::update:
+			p_transmit_round = temp.d;
 
 			break;
 		default:
@@ -270,35 +349,33 @@ bool process;
 i       = 0;
 process = false;
 
+
+//only run when current round == current location
+if( p_transmit_round != current_location )
+	return;
+
+//loop through entire mailbox
 for( i = 0; i < M; i++ )
     {
-	if( p_mailbox_ref[i].dir != direction::TX )
+	mailbox_type& currentMbx = p_mailbox_ref[i];
+
+	//skip any that arent tx
+	if( currentMbx.dir != direction::TX )
 		continue;
 
-	//bc map is const you need to use find 
-    auto itr = process_map.find( p_mailbox_ref[i].upt_rt );
-    if( itr == process_map.end() )
-		{
-		// console.add_assert( "unable to find update rate in process map");
-		continue;
-		}
-
-    process = itr->second( p_internal_clk );
-
-	//move onto next if not time to process
-	if( process == false )
-		continue;
-	
-	this->process_tx( i );
+	if( ( currentMbx.upt_rt == update_rate::RT_ASYNC || p_round_cntr % currentMbx.upt_rt ) == 0 )
+		this->process_tx( i );
 
     }
 
-//update clock w/ rollover 
-p_internal_clk = ( p_internal_clk + 100 ) % 1000;
+//update clock w/ rollover @ 100
+p_round_cntr = ( p_round_cntr + 1) % 100;
 
-//run transmit engine every 1s
-if( p_internal_clk == 0 )
-	this->transmit_engine();
+//update transmit round
+p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) );
+
+//run transmit engine
+this->transmit_engine();
 
 } /* core::mailbox:mailbox_runtime() */
 
@@ -307,7 +384,7 @@ if( p_internal_clk == 0 )
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       ore::mailbox<M>::process_tx()
+*       core::mailbox<M>::process_tx()
 *
 *   DESCRIPTION:
 *       process a tx entry in the global mailbox table
@@ -340,7 +417,7 @@ p_transmit_queue.push( msg_tx );
 /*********************************************************************
 *
 *   PROCEDURE NAME:
-*       core::mailbox<M>::process_rx()
+*       core::mailbox<M>::process_rx_data()
 *
 *   DESCRIPTION:
 *       currently no processing is done in the rx process function. 
@@ -348,7 +425,7 @@ p_transmit_queue.push( msg_tx );
 *
 *********************************************************************/
 template <int M>
-void core::mailbox<M>::process_rx
+void core::mailbox<M>::process_rx_data
 	( 
 	mbx_index index,
 	data_union data
@@ -370,7 +447,7 @@ if ASYNC update flag
 if( current_mailbox.upt_rt == update_rate::RT_ASYNC )
 	current_mailbox.flag = flag_type::RECEIVE_FLAG;
 
-} /* core::mailbox<M>::process_rx */
+} /* core::mailbox<M>::process_rx_data */
 
 /*********************************************************************
 *
@@ -483,36 +560,46 @@ loop untill Tx queue is empty or tx_message is full
 while( p_transmit_queue.size() > 0 || message_full )
 	{
 	/*------------------------------------------------------
-	Aquire the current mailbox
+	Aquire the current request
 	------------------------------------------------------*/
 	tx_msg        = p_transmit_queue.front();
 	mailbox_index = tx_msg.i;
-	mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
+	mailbox_type& current_mailbox;
+
+	if( tx_msg.r != msg_type::update )
+		{
+		current_mailbox = p_mailbox_ref[ mailbox_index ];
+		}
 
 	/*------------------------------------------------------
 	determine data sizing based upon message type
 	------------------------------------------------------*/
-	if( tx_msg.r == msg_type::ack )
+	switch( tx_msg.r )
 		{
-		data_size = 1;
-		}
-	else
-		{
-		/*------------------------------------------------------
-		Aquire data size. This must be done using *.find() due
-		to the fact that the std::map is defined as const
-		------------------------------------------------------*/
-		auto itr = data_size_map.find( current_mailbox.type );
-		if( itr == data_size_map.end() )
-			{
-			// console.add_assert( "map was called with invalid key");
-			memset( &return_msg, 0, sizeof( tx_message ) );
-			return return_msg;
-			}
+		case msg_type::ack:
+		case msg_type::update:
+			data_size = 1;
+			break;
 
-		data_size = itr->second;
-		}
+		case msg_type::data:
+			/*------------------------------------------------------
+			Aquire data size. This must be done using *.find() due
+			to the fact that the std::map is defined as const
+			------------------------------------------------------*/
+			auto itr = data_size_map.find( current_mailbox.type );
+			if( itr == data_size_map.end() )
+				{
+				// console.add_assert( "map was called with invalid key");
+				memset( &return_msg, 0, sizeof( tx_message ) );
+				return return_msg;
+				}
 
+			data_size = itr->second;
+			break;
+		default:
+			data_size = 0;
+			break;
+		}
 
 	/*------------------------------------------------------
 	Determine if we can handle another message based upon
@@ -526,10 +613,26 @@ while( p_transmit_queue.size() > 0 || message_full )
 		continue;
 		}
 
+
+
 	/*------------------------------------------------------
-	Determine destination based upon if item is an ack or data
+	Determine destination based upon if item is an ack, data 
+	or update 
 	------------------------------------------------------*/
-	packet_dest = ( tx_msg.r == msg_type::ack ) ? current_mailbox.source : current_mailbox.destination;
+	switch ( tx_msg.r )
+		{
+		case msg_type::data:
+			packet_dest = current_mailbox.destination;
+			break;
+		case msg_type::update:
+			packet_dest = MODULE_ALL;
+			break;
+		case msg_type::ack:
+			packet_dest = current_mailbox.source;
+			breal;
+		default:
+			break;
+		}
 
 	/*------------------------------------------------------
 	Update data desination. If MODULE_NONE, than this is the
@@ -550,34 +653,47 @@ while( p_transmit_queue.size() > 0 || message_full )
 	
 
 	/*------------------------------------------------------
-	Format of data is : [ index byte ] [ data byte ]...
-	Format of ack is  : [ ack byte   ] [ index     ]
+	Format of data is   : [ index byte   ] [ data byte ]...
+	Format of ack is    : [ ack byte     ] [ index     ]
+	Format of update is : [ update byete ] [new round  ]
 
 	Add in index byte and update current_index
 	------------------------------------------------------*/
-	if( tx_msg.r == msg_type::ack )
+	switch( tx_msg.r )
 		{
-		return_msg.message[current_index++] = MSG_ACK_ID;
-		return_msg.message[current_index++] = mailbox_index;
-		}
-	else
-		{
-		return_msg.message[current_index++] = mailbox_index;
+		case msg_type::ack:
+			return_msg.message[current_index++] = MSG_ACK_ID;
+			return_msg.message[current_index++] = mailbox_index;
 
-		/*------------------------------------------------------
-		memcopy data using data size of mailbox index and update
-		current index
-		------------------------------------------------------*/
-		memcpy( return_msg.message[current_index], &(current_mailbox.data), data_size );
-		current_index += data_size;
+			break;
 
-		/*------------------------------------------------------
-		add data to ack queue
-		------------------------------------------------------*/
-		p_awaiting_ack[current_index] = true;
-		p_ack_queue.push( mailbox_index );
+		case msg_type::data:
+			return_msg.message[current_index++] = mailbox_index;
+
+			/*------------------------------------------------------
+			memcopy data using data size of mailbox index and update
+			current index
+			------------------------------------------------------*/
+			memcpy( return_msg.message[current_index], &(current_mailbox.data), data_size );
+			current_index += data_size;
+
+			/*------------------------------------------------------
+			add data to ack queue
+			------------------------------------------------------*/
+			p_awaiting_ack[current_index] = true;
+			p_ack_queue.push( mailbox_index );
+
+			break;
+
+		case msg_type::update:
+			return_msg.message[current_index++] = MSG_UPDATE_ID;
+			return_msg.message[current_index++] = ( p_transmit_round + 1 ) % NUM_OF_MODULES;
+
+			break;
+
+		default:
+			break;
 		}
-	
 
 
 	/*------------------------------------------------------
@@ -619,3 +735,12 @@ more thoughts
 */
 
 
+
+template <int M>
+mbx_index core::mailbox<M>::verify_index( int idx )
+	{
+	if( index >= std::static_cast<int>(mbx_index::MAILBOX_NONE) )
+		return mbx_index::MAILBOX_NONE;
+
+	return std::static_cast<mbx_index>(idx);
+	}
