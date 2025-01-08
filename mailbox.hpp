@@ -5,7 +5,7 @@
 *   HEADER:
 *       header file for mailbox API
 *
-*   Copyright 2024 Nate Lenze
+*   Copyright 2025 Nate Lenze
 *
 **********************************************************************/
 /*--------------------------------------------------------------------
@@ -33,7 +33,7 @@
                             TYPES/ENUMS
 --------------------------------------------------------------------*/
 enum struct msg_type { data, update, ack, num_rtn_type };
-typedef struct msgAPI_rx
+struct msgAPI_rx
 	{
     msgAPI_rx( msg_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
 	msg_type r;
@@ -41,7 +41,7 @@ typedef struct msgAPI_rx
 	data_union d;
 	}; //if index == 0xFF --> ack
 
-typedef struct msgAPI_tx
+struct msgAPI_tx
     {
         msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
         msg_type r;
@@ -92,8 +92,7 @@ class mailbox
 
         // tx_message lora_ack_pack_engine( void );
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
-        void lora_unpack_engine( const rx_message msg );
-        void unpack_engine(rx_message);
+        void lora_unpack_engine( const rx_multi msg );
         void process_tx( mbx_index index );
         void process_rx_data( mbx_index index, data_union data );
         void transmit_engine( void );
@@ -109,5 +108,11 @@ class mailbox
     };
 
 } /* core namespace */
+
+
+/*--------------------------------------------------------------------
+                        TEMPLATE INITILIZATION
+--------------------------------------------------------------------*/
+#include "mailbox.tpp"
 
 #endif

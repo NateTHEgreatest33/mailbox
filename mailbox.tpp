@@ -6,7 +6,7 @@
 *   DESCRIPTION:
 *       Interface for mailbox API
 *
-*   Copyright 2024 Nate Lenze
+*   Copyright 2025 Nate Lenze
 *
 *********************************************************************/
 
@@ -95,7 +95,7 @@ mailbox()
 template <int M>
 core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
     {
-	transmit_round = 0;
+	p_transmit_round = 0;
 	// std::static_assert( size_map.size() != NUM_TYPES );
 
 	// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
@@ -103,7 +103,7 @@ core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
     p_mailbox_ref = global_mailbox;
     p_round_cntr = 0;
 
-	for( int i = 0 ; i < M, i++ )
+	for( int i = 0 ; i < M; i++ )
 		{
 		p_awaiting_ack[i] = false;
 		}
@@ -168,7 +168,7 @@ while( msg_index < msg.num_messages )
 		clear & setup data union
 		------------------------------------------------------*/
 		data_union data;
-		data.int = 0;
+		data.integer = 0;
 
 		/*------------------------------------------------------
 		Handle message if it is an ack
@@ -192,7 +192,7 @@ while( msg_index < msg.num_messages )
 			// trasmit_round = (trasmit_round + 1 ) % NUM_DESTINATIONS;
 			msg_data_index++; //get to data
 
-			data.int = rx_msg.message[msg_data_index];
+			data.integer = rx_msg.message[msg_data_index];
 			msgAPI_rx rx_data( msg_type::update, MSG_UPDATE_ID, data );
 			p_rx_queue.push( rx_data );
 
@@ -211,7 +211,7 @@ while( msg_index < msg.num_messages )
 
 			msg_data_index++; //get to data section
 
-			if( mbx_index == mbx_index::MAILBOX_NONE )
+			if( mailbox_index == mbx_index::MAILBOX_NONE )
 				{
 				//error handle & exit
 				}
@@ -231,7 +231,7 @@ while( msg_index < msg.num_messages )
 			/*------------------------------------------------------
 			memcpy data into union
 			------------------------------------------------------*/
-			memcpy( &data, msg.message[msg_data_index], data_size );
+			memcpy( &data, rx_msg.message[msg_data_index], data_size );
 
 			/*------------------------------------------------------
 			Determine if data was meant for us or was just packaged
@@ -305,7 +305,8 @@ while( !p_rx_queue.is_empty() )
 
 		case msg_type::ack:
 			if( !p_awaiting_ack[temp.i] )
-				//console.add_assert( "un-requested ack received");
+				console.add_assert( "un-requested ack received");
+				
 			else
 				p_awaiting_ack[temp.i] = false;
 
@@ -363,7 +364,7 @@ for( i = 0; i < M; i++ )
 	if( currentMbx.dir != direction::TX )
 		continue;
 
-	if( ( currentMbx.upt_rt == update_rate::RT_ASYNC || p_round_cntr % currentMbx.upt_rt ) == 0 )
+	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) )
 		this->process_tx( i );
 
     }
@@ -487,8 +488,8 @@ while( !p_ack_queue.empty() )
 	
 	if( p_awaiting_ack[current_index] != false )
 		{
-		std::string assert = "message failed to ack: " + std::string(p_awaiting_ack);
-		console.add_assert( assert );
+		std::string assert_msg = "message failed to ack: " + std::string(p_awaiting_ack);
+		console.add_assert( assert_msg );
 		}
 
 	p_ack_queue.pop();
@@ -536,7 +537,7 @@ int         current_index;
 int         data_size;
 mbx_index   mailbox_index;
 msgAPI_tx   tx_msg;
-location packet_dest
+location packet_dest;
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
@@ -629,7 +630,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 			break;
 		case msg_type::ack:
 			packet_dest = current_mailbox.source;
-			breal;
+			break;
 		default:
 			break;
 		}
@@ -710,14 +711,27 @@ return return_msg;
 }
 
 template <int M>
-bool core::mailbox<M>::update( data_union d, int global_mbx_indx )
+bool core::mailbox<M>::update
+	(
+	data_union d, 
+	int global_mbx_indx //suggest changing this to just mbx_index??
+	)
 { 
+if( this->verify_index( global_mbx_indx) == mbx_index::MAILBOX_NONE )
+	{
+	return false;
+	}
+
 p_mailbox_ref[global_mbx_indx].data = d;
+
 if( p_mailbox_ref[global_mbx_indx].upt_rt == update_rate::RT_ASYNC )
 	{
 	p_mailbox_ref[global_mbx_indx].flag = flag_type::TRANSMIT_FLAG;
 	}
- }
+
+
+return true;
+}
 
 // template <int M>
 // void core::mailbox<M>::receive_engine( void ){}
@@ -739,8 +753,8 @@ more thoughts
 template <int M>
 mbx_index core::mailbox<M>::verify_index( int idx )
 	{
-	if( index >= std::static_cast<int>(mbx_index::MAILBOX_NONE) )
+	if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) )
 		return mbx_index::MAILBOX_NONE;
 
-	return std::static_cast<mbx_index>(idx);
+	return static_cast<mbx_index>(idx);
 	}

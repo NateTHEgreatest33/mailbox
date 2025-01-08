@@ -8,7 +8,7 @@ pico_sdk_init()
 
 add_library( mailboxAPI
     mailbox.hpp
-    mailbox.cpp
+    mailbox.tpp
 
     mailbox_types.hpp
     mailbox_map.hpp

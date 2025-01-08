@@ -56,7 +56,7 @@ enum struct flag_type
 };
 
 
-enum struct update_rate : int 
+enum struct update_rate : int  //im unsure if this is legal in c++?
 {
     RT_1_ROUND  = 1,
     RT_5_ROUND  = 5,
