@@ -48,27 +48,17 @@
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
 --------------------------------------------------------------------*/
-// const std::unordered_map< update_rate, std::function<bool(int)> > process_map = { { update_rate::RT_1_ROUND , [](int clk ){ return true;  }                                      },
-// 																		 		  { update_rate::RT_5_ROUND , [](int clk ){ return ( clk == 0 || clk == 500 ) ? true : false;  } },
-// 																				  { update_rate::RT_1_S    , [](int clk ){ return ( clk == 0 );  }                              },
-// 																				  { update_rate::RT_ASYNC  , [](int clk ){ return true;  }                                      }
-//                                                                                 };
-
-// const std::unordered_map< update_rate, int> process_map = { { update_rate::RT_1_ROUND, 1  },
-// 															{ update_rate::RT_5_ROUND, 5 },
-// 															{ update_rate::RT_1_ROUND, 10 },
-// 															{ update_rate::RT_ASYNC  , 1 }
-//                                                           };
-
 const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_32_TYPE , 4 },
 															 { data_type::UINT_32_TYPE  , 4 },
 															 { data_type::BOOLEAN_TYPE  , 1 } };
+															 
 /*--------------------------------------------------------------------
                               EXTERNS
 --------------------------------------------------------------------*/
 extern core::console console;
 extern const location current_location;
 extern core::messageInterface messageAPI;
+
 /*--------------------------------------------------------------------
                               VARIABLES
 --------------------------------------------------------------------*/
@@ -318,7 +308,7 @@ while( !p_rx_queue.is_empty() )
 
 			break;
 		default:
-			//console.add_assert( "malformed return type" );
+			console.add_assert( "malformed return type" );
 			break;
 		}
 
@@ -590,7 +580,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 			auto itr = data_size_map.find( current_mailbox.type );
 			if( itr == data_size_map.end() )
 				{
-				// console.add_assert( "map was called with invalid key");
+				console.add_assert( "map was called with invalid key");
 				memset( &return_msg, 0, sizeof( tx_message ) );
 				return return_msg;
 				}
