@@ -14,7 +14,6 @@
                               INCLUDES
 --------------------------------------------------------------------*/
 #include "mailbox.hpp"
-#include "mailbox_map.hpp"
 #include "messageAPI.hpp"
 #include "console.hpp"
 #include "mailbox_types.hpp"
@@ -55,7 +54,7 @@ const std::unordered_map< data_type, int > data_size_map = { { data_type::FLOAT_
 /*--------------------------------------------------------------------
                               EXTERNS
 --------------------------------------------------------------------*/
-extern core::console console;
+extern core::console Console;
 extern const location current_location;
 extern core::messageInterface messageAPI;
 
@@ -83,21 +82,26 @@ mailbox()
 *
 *********************************************************************/
 template <int M>
-core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
-    {
-	p_transmit_round = 0;
-	// std::static_assert( size_map.size() != NUM_TYPES );
+core::mailbox<M>::mailbox
+	(
+	std::array<mailbox_type, M>& global_mailbox 
+	) :
+	p_mailbox_ref( global_mailbox )
+{
+// p_mailbox_ref = global_mailbox;
+p_transmit_round = 0;
+// std::static_assert( size_map.size() != NUM_TYPES );
 
-	// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
-	//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
-    p_mailbox_ref = global_mailbox;
-    p_round_cntr = 0;
+// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
+//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
 
-	for( int i = 0 ; i < M; i++ )
-		{
-		p_awaiting_ack[i] = false;
-		}
-    }
+p_round_cntr = 0;
+
+for( int i = 0 ; i < M; i++ )
+	{
+	p_awaiting_ack[i] = false;
+	}
+}
 
 /*********************************************************************
 *
@@ -109,9 +113,12 @@ core::mailbox<M>::mailbox( std::array<mailbox_type, M>& global_mailbox )
 *
 *********************************************************************/
 template <int M>
-core::mailbox<M>::~mailbox( void ) 
-	{
-	}
+core::mailbox<M>::~mailbox
+	(
+	void 
+	) 
+{
+}
 
 /*********************************************************************
 *
@@ -265,7 +272,10 @@ while( msg_index < msg.num_messages )
 *
 *********************************************************************/
 template <int M>
-void core::mailbox<M>::rx_runtime( void )
+void core::mailbox<M>::rx_runtime
+	(
+	void
+	)
 {
 rx_multi rx_data;
 
@@ -295,7 +305,7 @@ while( !p_rx_queue.is_empty() )
 
 		case msg_type::ack:
 			if( !p_awaiting_ack[temp.i] )
-				console.add_assert( "un-requested ack received");
+				Console.add_assert( "un-requested ack received");
 				
 			else
 				p_awaiting_ack[temp.i] = false;
@@ -308,7 +318,7 @@ while( !p_rx_queue.is_empty() )
 
 			break;
 		default:
-			console.add_assert( "malformed return type" );
+			Console.add_assert( "malformed return type" );
 			break;
 		}
 
@@ -332,7 +342,10 @@ while( !p_rx_queue.is_empty() )
 *
 *********************************************************************/
 template <int M>
-void core::mailbox<M>::tx_runtime( void )
+void core::mailbox<M>::tx_runtime
+	(
+	void
+	)
 {
 int i;
 bool process;
@@ -479,7 +492,7 @@ while( !p_ack_queue.empty() )
 	if( p_awaiting_ack[current_index] != false )
 		{
 		std::string assert_msg = "message failed to ack: " + std::string(p_awaiting_ack);
-		console.add_assert( assert_msg );
+		Console.add_assert( assert_msg );
 		}
 
 	p_ack_queue.pop();
@@ -580,7 +593,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 			auto itr = data_size_map.find( current_mailbox.type );
 			if( itr == data_size_map.end() )
 				{
-				console.add_assert( "map was called with invalid key");
+				Console.add_assert( "map was called with invalid key");
 				memset( &return_msg, 0, sizeof( tx_message ) );
 				return return_msg;
 				}

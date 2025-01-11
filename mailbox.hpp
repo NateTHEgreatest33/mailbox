@@ -15,8 +15,9 @@
 #include "messageAPI.hpp"
 #include "mailbox_types.hpp"
 #include "queue.hpp"
+#include "console.hpp"
 
-#include "mailbox_map.hpp"
+#include "mailbox_map_types.hpp"
 
 #include <unordered_map>
 #include <array>
@@ -36,6 +37,7 @@ enum struct msg_type { data, update, ack, num_rtn_type };
 struct msgAPI_rx
 	{
     msgAPI_rx( msg_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
+    msgAPI_rx() {}
 	msg_type r;
 	mbx_index i;
 	data_union d;
@@ -44,6 +46,7 @@ struct msgAPI_rx
 struct msgAPI_tx
     {
         msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
+        msgAPI_tx( ) {}
         msg_type r;
         mbx_index i;
     };
