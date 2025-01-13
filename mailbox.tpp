@@ -153,7 +153,7 @@ Parse through all messages received
 while( msg_index < msg.num_messages )
 	{
 	msg_data_index = 0;
-	rx_message& rx_msg = msg.messages[msg_index];
+	rx_message rx_msg = msg.messages[msg_index];
 
 	/*------------------------------------------------------
 	Parse through all packed messages within the single 
@@ -190,7 +190,7 @@ while( msg_index < msg.num_messages )
 			msg_data_index++; //get to data
 
 			data.integer = rx_msg.message[msg_data_index];
-			msgAPI_rx rx_data( msg_type::update, MSG_UPDATE_ID, data );
+			msgAPI_rx rx_data( msg_type::update, static_cast<mbx_index>(MSG_UPDATE_ID), data ); //MSG_UPDATE_ID
 			p_rx_queue.push( rx_data );
 
 			//update past update
@@ -216,7 +216,7 @@ while( msg_index < msg.num_messages )
 			/*------------------------------------------------------
 			Aquire mailbox from index
 			------------------------------------------------------*/
-			mailbox_type& current_mailbox = p_mailbox_ref[ mailbox_index ];
+			mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(mailbox_index) ];
 
 			/*------------------------------------------------------
 			Aquire data size. This must be done using *.find() due
@@ -228,7 +228,7 @@ while( msg_index < msg.num_messages )
 			/*------------------------------------------------------
 			memcpy data into union
 			------------------------------------------------------*/
-			memcpy( &data, rx_msg.message[msg_data_index], data_size );
+			memcpy( &data, &(rx_msg.message[msg_data_index]), data_size );
 
 			/*------------------------------------------------------
 			Determine if data was meant for us or was just packaged
@@ -296,25 +296,30 @@ while( !p_rx_queue.is_empty() )
 	switch( temp.r )
 		{
 		case msg_type::data:
+			{
 			this->process_rx_data( temp.i, temp.d );
 
 			//add rx'ed msg to ack list
 			msgAPI_tx tx_msg( msg_type::ack, temp.i );
 			p_transmit_queue.push( tx_msg );
 			break;
+			}
 
 		case msg_type::ack:
-			if( !p_awaiting_ack[temp.i] )
+			if( !p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
+				{
 				Console.add_assert( "un-requested ack received");
-				
+				}
 			else
-				p_awaiting_ack[temp.i] = false;
+				{
+				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
 
 				//every 1s maybe do an ack verify <-- yes ack verify happens the tx_process AFTER sent
+				}
 			break;
 
 		case msg_type::update:
-			p_transmit_round = temp.d;
+			p_transmit_round = temp.d.integer;
 
 			break;
 		default:
@@ -368,7 +373,7 @@ for( i = 0; i < M; i++ )
 		continue;
 
 	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) )
-		this->process_tx( i );
+		this->process_tx( static_cast<mbx_index>(i) );
 
     }
 
@@ -403,7 +408,7 @@ void core::mailbox<M>::process_tx
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
-mailbox_type& current_mailbox = p_mailbox_ref[ index ];
+mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(index) ];
 
 /*----------------------------------------------------------
 if current mailbox is ASYNC, only update when flag is 
@@ -438,7 +443,7 @@ void core::mailbox<M>::process_rx_data
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
-mailbox_type& current_mailbox = p_mailbox_ref[ index ];
+mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(index) ];
 
 /*----------------------------------------------------------
 Update data
@@ -485,13 +490,13 @@ Verify and clear ack queue. This is dont first in the
 engine so that we can fill this in again to verify for the 
 next round
 ----------------------------------------------------------*/
-while( !p_ack_queue.empty() )
+while( !p_ack_queue.is_empty() )
 	{
-	mbx_index current_index = p_ack_queue.front();
+	int current_index = static_cast<int>( p_ack_queue.front() );
 	
 	if( p_awaiting_ack[current_index] != false )
 		{
-		std::string assert_msg = "message failed to ack: " + std::string(p_awaiting_ack);
+		std::string assert_msg = "message failed to ack: " + std::to_string(current_index);
 		Console.add_assert( assert_msg );
 		}
 
@@ -568,11 +573,19 @@ while( p_transmit_queue.size() > 0 || message_full )
 	------------------------------------------------------*/
 	tx_msg        = p_transmit_queue.front();
 	mailbox_index = tx_msg.i;
-	mailbox_type& current_mailbox;
+
+	/*------------------------------------------------------
+	Initially I thought we would need this to be a reference
+	to the actual mailbox, however after digging through the
+	code I decided we can make a copy since we are pulling
+	data and not storing it. To mitigate the risk of user
+	code writing a request while we in the middle of a tran
+	------------------------------------------------------*/
+	mailbox_type current_mailbox;
 
 	if( tx_msg.r != msg_type::update )
 		{
-		current_mailbox = p_mailbox_ref[ mailbox_index ];
+		current_mailbox = p_mailbox_ref[ static_cast<int>(mailbox_index) ];
 		}
 
 	/*------------------------------------------------------
@@ -713,6 +726,19 @@ return message
 return return_msg;
 }
 
+
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::update()
+*
+*   DESCRIPTION:
+*       This is a public function that updates a mailbox data
+*
+*   NOTE:
+*
+*********************************************************************/
 template <int M>
 bool core::mailbox<M>::update
 	(
@@ -725,6 +751,8 @@ if( this->verify_index( global_mbx_indx) == mbx_index::MAILBOX_NONE )
 	return false;
 	}
 
+//mutex needed here
+
 p_mailbox_ref[global_mbx_indx].data = d;
 
 if( p_mailbox_ref[global_mbx_indx].upt_rt == update_rate::RT_ASYNC )
@@ -732,9 +760,48 @@ if( p_mailbox_ref[global_mbx_indx].upt_rt == update_rate::RT_ASYNC )
 	p_mailbox_ref[global_mbx_indx].flag = flag_type::TRANSMIT_FLAG;
 	}
 
-
 return true;
-}
+} /* core::mailbox<M>::update() */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::access()
+*
+*   DESCRIPTION:
+*       This is a public function that updates a mailbox data
+*
+*   NOTE:
+*
+*********************************************************************/
+template <int M>
+data_union core::mailbox<M>::access
+	(
+	mbx_index global_mbx_indx, //suggest changing this to just mbx_index??
+	bool      clear_flag
+	)
+{ 
+
+data_union rtn_data;
+rtn_data.integer = 0xFFFF; //need a better way of determining if flag or not
+
+if( this->verify_index( static_cast<int>(global_mbx_indx) ) == mbx_index::MAILBOX_NONE )
+	{
+	return rtn_data;
+	}
+
+mailbox_type& current_mbx = p_mailbox_ref[ static_cast<int>(global_mbx_indx) ].data;
+
+if( clear_flag )
+	{
+	//mutex needed here
+	current_mbx.flag = flag_type::NO_FLAG;
+	}
+
+return current_mbx.data;
+
+
+} /* core::mailbox::access() */
 
 // template <int M>
 // void core::mailbox<M>::receive_engine( void ){}

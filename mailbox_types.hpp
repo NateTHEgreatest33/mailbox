@@ -61,7 +61,7 @@ enum struct update_rate : int  //im unsure if this is legal in c++?
     RT_1_ROUND  = 1,
     RT_5_ROUND  = 5,
     RT_10_ROUND = 10,
-    RT_ASYNC    = 1,
+    RT_ASYNC    = 1, //this needs to be fixed otherwise RT_ASYNC == RT1_ROUND
 
     NUM_UPDATE_RATES = 4
 };

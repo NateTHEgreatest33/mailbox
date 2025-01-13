@@ -11,7 +11,6 @@
 /*--------------------------------------------------------------------
                               INCLUDES
 --------------------------------------------------------------------*/
-// #include "message_map.hpp"
 #include "messageAPI.hpp"
 #include "mailbox_types.hpp"
 #include "queue.hpp"
@@ -46,7 +45,7 @@ struct msgAPI_rx
 struct msgAPI_tx
     {
         msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
-        msgAPI_tx( ) {}
+        msgAPI_tx() {}
         msg_type r;
         mbx_index i;
     };
@@ -79,7 +78,7 @@ class mailbox
         mailbox( std::array<mailbox_type, M>& global_mailbox );
         void rx_runtime( void );
         void tx_runtime( void );
-        data_union access( int global_mbx_indx );
+        data_union access( mbx_index global_mbx_indx, bool clear_flag = true );
         bool update( data_union d, int global_mbx_indx );
         ~mailbox( void );
 
@@ -97,7 +96,7 @@ class mailbox
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
         void lora_unpack_engine( const rx_multi msg );
         void process_tx( mbx_index index );
-        void process_rx_data( mbx_index index, data_union data );
+        void process_rx_data( mbx_index index, data_union data ); //is this needed? why dont we use public update functions?? also we need to protect data w/ mutex
         void transmit_engine( void );
         // void receive_engine( void );
 
