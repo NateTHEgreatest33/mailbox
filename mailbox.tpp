@@ -599,6 +599,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 			break;
 
 		case msg_type::data:
+			{ // {} required due to creating itr inside of switch case statement, kinda weird
 			/*------------------------------------------------------
 			Aquire data size. This must be done using *.find() due
 			to the fact that the std::map is defined as const
@@ -613,6 +614,8 @@ while( p_transmit_queue.size() > 0 || message_full )
 
 			data_size = itr->second;
 			break;
+			}
+
 		default:
 			data_size = 0;
 			break;
@@ -680,18 +683,19 @@ while( p_transmit_queue.size() > 0 || message_full )
 		{
 		case msg_type::ack:
 			return_msg.message[current_index++] = MSG_ACK_ID;
-			return_msg.message[current_index++] = mailbox_index;
+			return_msg.message[current_index++] = static_cast<int>(mailbox_index);
 
 			break;
 
 		case msg_type::data:
-			return_msg.message[current_index++] = mailbox_index;
+			return_msg.message[current_index++] = static_cast<int>(mailbox_index);
 
 			/*------------------------------------------------------
 			memcopy data using data size of mailbox index and update
 			current index
 			------------------------------------------------------*/
-			memcpy( return_msg.message[current_index], &(current_mailbox.data), data_size );
+			memcpy( &(return_msg.message[current_index]), &(current_mailbox.data), data_size ); //note this does not work!! we need to memcopy 
+			// to a temp variable and use the accessor function bc current_mailbox is not a reference anymore!
 			current_index += data_size;
 
 			/*------------------------------------------------------
