@@ -29,9 +29,10 @@ enum struct mbx_index : uint8_t
     {
     EXAMPLE_INT_MSG = 0,
     EXAMPLE_FLT_MSG = 1,
+    EXAMPLE_RX_MSG  = 2,
+    EXAMPLE_FLT_RX_MSG = 3,
 
-
-    NUM_MAILBOX = 2,
+    NUM_MAILBOX,
     MAILBOX_NONE,
     
     RESERVED_1 = 0xFF, //ack ID

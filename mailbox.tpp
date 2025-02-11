@@ -15,7 +15,7 @@
 --------------------------------------------------------------------*/
 #include "mailbox.hpp"
 #include "messageAPI.hpp"
-#include "console.hpp"
+#include "Console.hpp"
 #include "mailbox_types.hpp"
 
 
@@ -308,7 +308,7 @@ while( !p_rx_queue.is_empty() )
 		case msg_type::ack:
 			if( !p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				{
-				Console.add_assert( "un-requested ack received");
+				//Console.add_assert( "un-requested ack received");
 				}
 			else
 				{
@@ -323,7 +323,7 @@ while( !p_rx_queue.is_empty() )
 
 			break;
 		default:
-			Console.add_assert( "malformed return type" );
+			//Console.add_assert( "malformed return type" );
 			break;
 		}
 
@@ -332,7 +332,7 @@ while( !p_rx_queue.is_empty() )
 
 	}
 
-//console report if errors present
+////Console report if errors present
 
 }
 
@@ -358,6 +358,9 @@ bool process;
 i       = 0;
 process = false;
 
+//DEBUG
+// p_transmit_round = current_location;
+
 
 //only run when current round == current location
 if( p_transmit_round != current_location )
@@ -372,7 +375,7 @@ for( i = 0; i < M; i++ )
 	if( currentMbx.dir != direction::TX )
 		continue;
 
-	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) )
+	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) ) //issue! cant mod 0
 		this->process_tx( static_cast<mbx_index>(i) );
 
     }
@@ -443,18 +446,19 @@ void core::mailbox<M>::process_rx_data
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
-mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(index) ];
+// mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(index) ];
 
 /*----------------------------------------------------------
-Update data
+Update data, flag as not user_mode
 ----------------------------------------------------------*/
-current_mailbox.data = data;
+// current_mailbox.data = data;
+this->update( data, static_cast<int>(index), false );
 
 /*----------------------------------------------------------
 if ASYNC update flag
 ----------------------------------------------------------*/
-if( current_mailbox.upt_rt == update_rate::RT_ASYNC )
-	current_mailbox.flag = flag_type::RECEIVE_FLAG;
+// if( current_mailbox.upt_rt == update_rate::RT_ASYNC )
+// 	current_mailbox.flag = flag_type::RECEIVE_FLAG;
 
 } /* core::mailbox<M>::process_rx_data */
 
@@ -497,7 +501,7 @@ while( !p_ack_queue.is_empty() )
 	if( p_awaiting_ack[current_index] != false )
 		{
 		std::string assert_msg = "message failed to ack: " + std::to_string(current_index);
-		Console.add_assert( assert_msg );
+		//Console.add_assert( assert_msg );
 		}
 
 	p_ack_queue.pop();
@@ -509,8 +513,21 @@ Empty trasmit queue and tx over messageAPI
 while( !p_transmit_queue.is_empty() )
 	{
 	tx_message lora_frame = lora_pack_engine();   //this needs to be reworked for adding acks, but ack format is WAY different than a normal format so need to think what the right way is here, maybe a tx struct?
-	messageAPI.send_message( lora_frame );
+	if( !messageAPI.send_message( lora_frame ) )
+		{
+		//Console.add_assert( "MessageAPI unable to TX" ); //this is hit when it shouldnt be?
+		}
 	}
+	// p_transmit_queue.pop();
+	// }
+// tx_message msg;
+// msg.destination = MODULE_ALL;
+// msg.size = 2;
+// msg.message[0] = MSG_UPDATE_ID;
+// msg.message[1] = 0x00;
+// messageAPI.send_message( msg );
+
+// p_transmit_round = 0; //disable rx
 
 } /* core::mailbox<M>::transmit_engine */
 
@@ -549,7 +566,7 @@ location packet_dest;
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
-
+//SOMETHING IS VERY WRONG WITH THIS FUNCTION!! IT IS CAUSING A CRASH EVERY TIME
 /*----------------------------------------------------------
 Init variables
 ----------------------------------------------------------*/
@@ -566,7 +583,7 @@ packet_dest            = MODULE_NONE;
 /*----------------------------------------------------------
 loop untill Tx queue is empty or tx_message is full
 ----------------------------------------------------------*/
-while( p_transmit_queue.size() > 0 || message_full )
+while( p_transmit_queue.size() > 0 && !message_full )
 	{
 	/*------------------------------------------------------
 	Aquire the current request
@@ -585,6 +602,11 @@ while( p_transmit_queue.size() > 0 || message_full )
 
 	if( tx_msg.r != msg_type::update )
 		{
+		if( verify_index( static_cast<int>(mailbox_index) ) == mbx_index::MAILBOX_NONE )
+			{
+			memset( &return_msg, 0, sizeof( tx_message ) );
+			return return_msg;
+			}
 		current_mailbox = p_mailbox_ref[ static_cast<int>(mailbox_index) ];
 		}
 
@@ -607,7 +629,7 @@ while( p_transmit_queue.size() > 0 || message_full )
 			auto itr = data_size_map.find( current_mailbox.type );
 			if( itr == data_size_map.end() )
 				{
-				Console.add_assert( "map was called with invalid key");
+				// //Console.add_assert( "map was called with invalid key");                        //debug change
 				memset( &return_msg, 0, sizeof( tx_message ) );
 				return return_msg;
 				}
@@ -618,6 +640,8 @@ while( p_transmit_queue.size() > 0 || message_full )
 
 		default:
 			data_size = 0;
+			memset( &return_msg, 0, sizeof( tx_message ) );
+			return return_msg;
 			break;
 		}
 
@@ -627,13 +651,13 @@ while( p_transmit_queue.size() > 0 || message_full )
 
 	+1 is to include index byte
 	------------------------------------------------------*/
-	if( current_index + data_size + 1 > MAX_LORA_MSG_SIZE )
+	// if( current_index + data_size + 1 > MAX_LORA_MSG_SIZE ) --> MAX_LORA_MSG_SIZE is 128, does this make sense given we are packing ina messageAPI? no
+	if( current_index + data_size + 1 > MAX_MSG_LENGTH )
 		{
 		message_full = true;
-		continue;
+		return_msg.size = current_index;
+		break;
 		}
-
-
 
 	/*------------------------------------------------------
 	Determine destination based upon if item is an ack, data 
@@ -688,14 +712,19 @@ while( p_transmit_queue.size() > 0 || message_full )
 			break;
 
 		case msg_type::data:
+			{
 			return_msg.message[current_index++] = static_cast<int>(mailbox_index);
 
 			/*------------------------------------------------------
 			memcopy data using data size of mailbox index and update
 			current index
 			------------------------------------------------------*/
-			memcpy( &(return_msg.message[current_index]), &(current_mailbox.data), data_size ); //note this does not work!! we need to memcopy 
-			// to a temp variable and use the accessor function bc current_mailbox is not a reference anymore!
+			// memcpy( &(return_msg.message[current_index]), &(current_mailbox.data), data_size ); 
+			flag_type throwaway_flag_data;
+			// data_union temp_data = this->access( mailbox_index, throwaway_flag_data );
+			data_union temp_data;
+			temp_data.flt = 0.0;       													//debug changes
+			memcpy( &(return_msg.message[current_index]), &(temp_data), data_size ); 
 			current_index += data_size;
 
 			/*------------------------------------------------------
@@ -705,10 +734,18 @@ while( p_transmit_queue.size() > 0 || message_full )
 			p_ack_queue.push( mailbox_index );
 
 			break;
+			}
 
+		/*------------------------------------------------------
+		We update our local p_transmit_round on transmit by
+		doing a pre-increment within the update function. We do
+		this here otherwise we would continue to transmit until
+		the next module.
+		------------------------------------------------------*/
 		case msg_type::update:
 			return_msg.message[current_index++] = MSG_UPDATE_ID;
-			return_msg.message[current_index++] = ( p_transmit_round + 1 ) % NUM_OF_MODULES;
+			return_msg.message[current_index++] = ( p_transmit_round + 1) % NUM_OF_MODULES;
+			p_transmit_round = ( p_transmit_round + 1) % NUM_OF_MODULES;
 
 			break;
 
@@ -725,8 +762,11 @@ while( p_transmit_queue.size() > 0 || message_full )
 	}
 
 /*----------------------------------------------------------
-return message
+return message and set size to current index
+
+if we dont set size, message size == 0
 ----------------------------------------------------------*/
+return_msg.size = current_index;
 return return_msg;
 }
 
@@ -738,7 +778,8 @@ return return_msg;
 *       core::mailbox::update()
 *
 *   DESCRIPTION:
-*       This is a public function that updates a mailbox data
+*       This is a public function that updates a mailbox data. returns
+*		false if issue updating data
 *
 *   NOTE:
 *
@@ -746,24 +787,55 @@ return return_msg;
 template <int M>
 bool core::mailbox<M>::update
 	(
-	data_union d, 
-	int global_mbx_indx //suggest changing this to just mbx_index??
+	data_union d,                  /* data                          */
+	int global_mbx_indx,           /* mailbox index                 */
+	bool user_mode                 /* application calling (default) */
 	)
 { 
+/*----------------------------------------------------------
+Verify passed in index
+----------------------------------------------------------*/
 if( this->verify_index( global_mbx_indx) == mbx_index::MAILBOX_NONE )
 	{
 	return false;
 	}
-
-//mutex needed here
-
-p_mailbox_ref[global_mbx_indx].data = d;
-
-if( p_mailbox_ref[global_mbx_indx].upt_rt == update_rate::RT_ASYNC )
+/*----------------------------------------------------------
+Verify tx/rx mode is accessed correctly. The user should only
+be able to set TX items, while the updater functions should
+only be able to set RX items
+----------------------------------------------------------*/
+if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
+    ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
 	{
-	p_mailbox_ref[global_mbx_indx].flag = flag_type::TRANSMIT_FLAG;
+	//Console.add_assert( "Mailbox::update() is being called on data it cannot update");
+	return false;
 	}
 
+/*----------------------------------------------------------
+Update mailbox while protected
+----------------------------------------------------------*/
+	{
+	// utl::mutex_lock lock( p_mailbox_protection ); //disabling for the time being
+
+	p_mailbox_ref[global_mbx_indx].data = d;
+
+	/*------------------------------------------------------
+	set flag based upon caller
+	------------------------------------------------------*/
+	if( user_mode )
+		{
+		p_mailbox_ref[global_mbx_indx].flag = flag_type::TRANSMIT_FLAG;
+		}
+	else
+		{
+		p_mailbox_ref[global_mbx_indx].flag = flag_type::RECEIVE_FLAG;
+		}
+
+	} /* release mutex */
+
+/*----------------------------------------------------------
+return true with data having been 
+----------------------------------------------------------*/
 return true;
 } /* core::mailbox<M>::update() */
 
@@ -782,30 +854,76 @@ template <int M>
 data_union core::mailbox<M>::access
 	(
 	mbx_index global_mbx_indx, //suggest changing this to just mbx_index??
-	bool      clear_flag
+	flag_type& current_flag,   /* returns current flag data */
+	bool      clear_flag       /* default yes */
 	)
 { 
-
+/*----------------------------------------------------------
+Variables
+----------------------------------------------------------*/
 data_union rtn_data;
-rtn_data.integer = 0xFFFF; //need a better way of determining if flag or not
 
+/*----------------------------------------------------------
+Initize Variables
+----------------------------------------------------------*/
+rtn_data.integer = 0xFFFF; //need a better way of determining if flag or not
+current_flag     = flag_type::NO_FLAG;
+
+/*----------------------------------------------------------
+Verify passed in index
+----------------------------------------------------------*/
 if( this->verify_index( static_cast<int>(global_mbx_indx) ) == mbx_index::MAILBOX_NONE )
 	{
 	return rtn_data;
 	}
 
-mailbox_type& current_mbx = p_mailbox_ref[ static_cast<int>(global_mbx_indx) ].data;
+/*----------------------------------------------------------
+Aquire reference to data
+----------------------------------------------------------*/
+mailbox_type& current_mbx = p_mailbox_ref[ static_cast<int>(global_mbx_indx) ];
 
-if( clear_flag )
+/*----------------------------------------------------------
+Handle and aquire flag data while protected
+----------------------------------------------------------*/
 	{
-	//mutex needed here
-	current_mbx.flag = flag_type::NO_FLAG;
+	// utl::mutex_lock lock( p_mailbox_protection ); //issue for the time being, disabling for now
+
+	current_flag = current_mbx.flag;
+
+	if( clear_flag )
+		current_mbx.flag = flag_type::NO_FLAG;
+
+	/*------------------------------------------------------
+	return data
+	------------------------------------------------------*/
+	return current_mbx.data;
 	}
 
-return current_mbx.data;
-
-
 } /* core::mailbox::access() */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::verify_index()
+*
+*   DESCRIPTION:
+*       Verifies an index exists within the global table
+*
+*   NOTE:
+*
+*********************************************************************/
+template <int M>
+mbx_index core::mailbox<M>::verify_index( int idx )
+{
+if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) )
+	return mbx_index::MAILBOX_NONE;
+
+return static_cast<mbx_index>(idx);
+} /* core::mailbox::verify_index() */
+
+
+
+
 
 // template <int M>
 // void core::mailbox<M>::receive_engine( void ){}
@@ -821,14 +939,3 @@ more thoughts
 
 
 */
-
-
-
-template <int M>
-mbx_index core::mailbox<M>::verify_index( int idx )
-	{
-	if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) )
-		return mbx_index::MAILBOX_NONE;
-
-	return static_cast<mbx_index>(idx);
-	}

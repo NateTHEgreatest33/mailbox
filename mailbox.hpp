@@ -15,11 +15,15 @@
 #include "mailbox_types.hpp"
 #include "queue.hpp"
 #include "console.hpp"
+#include "mutex_lock.hpp"
 
 #include "mailbox_map_types.hpp"
 
 #include <unordered_map>
 #include <array>
+
+
+#include "pico/mutex.h"
 
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
@@ -78,14 +82,14 @@ class mailbox
         mailbox( std::array<mailbox_type, M>& global_mailbox );
         void rx_runtime( void );
         void tx_runtime( void );
-        data_union access( mbx_index global_mbx_indx, bool clear_flag = true );
-        bool update( data_union d, int global_mbx_indx );
+        data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true );
+        bool update( data_union d, int global_mbx_indx, bool user_mode = true );
         ~mailbox( void );
 
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_round_cntr;
-        utl::queue<M, msgAPI_tx> p_transmit_queue;
+        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; //is this size right? im not sure since we can ACK ROUND AND TX
         utl::queue<M, mbx_index> p_ack_queue;
         std::array<bool, M> p_awaiting_ack;
         utl::queue<M, msgAPI_rx> p_rx_queue;
@@ -102,8 +106,8 @@ class mailbox
 
         mbx_index verify_index( int idx );
 
-        int p_transmit_round; // tx round == local unit
-
+        volatile int p_transmit_round; // tx round == local unit
+        mutex_t p_mailbox_protection;
 
 
 
