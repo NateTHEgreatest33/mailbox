@@ -366,6 +366,8 @@ process = false;
 if( p_transmit_round != current_location )
 	return;
 
+p_watchdog_pet = true;
+
 //loop through entire mailbox
 for( i = 0; i < M; i++ )
     {
@@ -922,6 +924,18 @@ return static_cast<mbx_index>(idx);
 } /* core::mailbox::verify_index() */
 
 
+template <int M>
+void core::mailbox<M>::watchdog
+	( 
+	void 
+	)
+{
+//force a tx round
+if( !p_watchdog_pet )
+	{
+	p_transmit_round = current_location;
+	}
+}
 
 
 

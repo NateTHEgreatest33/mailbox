@@ -82,6 +82,7 @@ class mailbox
         mailbox( std::array<mailbox_type, M>& global_mailbox );
         void rx_runtime( void );
         void tx_runtime( void );
+        void watchdog( void );
         data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true );
         bool update( data_union d, int global_mbx_indx, bool user_mode = true );
         ~mailbox( void );
