@@ -95,6 +95,9 @@ p_transmit_round = 0;
 // std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
 //create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
 
+//init mutexs
+mutex_init( &p_mailbox_protection );
+
 p_round_cntr = 0;
 
 for( int i = 0 ; i < M; i++ )

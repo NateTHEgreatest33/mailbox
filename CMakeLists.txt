@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+# cmake_minimum_required(VERSION 3.5)
 
 project(mailboxAPI CXX ASM)
 
@@ -12,6 +12,9 @@ add_library( mailboxAPI
 
     mailbox_types.hpp
     mailbox_map_types.hpp
+
+    test/mailbox_test.hpp
+    test/mailbox_test.cpp
     )
 
 target_link_libraries( mailboxAPI

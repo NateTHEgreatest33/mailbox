@@ -109,6 +109,7 @@ class mailbox
 
         volatile int p_transmit_round; // tx round == local unit
         mutex_t p_mailbox_protection;
+        bool p_watchdog_pet;
 
 
 
