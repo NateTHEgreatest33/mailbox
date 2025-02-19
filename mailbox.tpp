@@ -156,7 +156,7 @@ Parse through all messages received
 while( msg_index < msg.num_messages )
 	{
 	msg_data_index = 0;
-	rx_message rx_msg = msg.messages[msg_index];
+	rx_message rx_msg = msg.messages[msg_index];                  //add verify index here
 
 	/*------------------------------------------------------
 	Parse through all packed messages within the single 
@@ -285,10 +285,12 @@ rx_multi rx_data;
 rx_data = messageAPI.get_multi_message();
 
 //fast exit
-if( rx_data.num_messages == 0 )
+if( rx_data.num_messages == 0 || rx_data.global_errors != MSG_NO_ERROR )
 	return;
 
 //unpack data
+//NEED TO ADD ERROR CHECKING!! RX DATA MAY HAVE ERRORS!!!
+
 this->lora_unpack_engine( rx_data );	
 
 //handle p_rx_queue()
@@ -728,7 +730,8 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			flag_type throwaway_flag_data;
 			// data_union temp_data = this->access( mailbox_index, throwaway_flag_data );
 			data_union temp_data;
-			temp_data.flt = 0.0;       													//debug changes
+			// temp_data.flt = 0.0;
+			temp_data = this->access( mailbox_index, throwaway_flag_data );
 			memcpy( &(return_msg.message[current_index]), &(temp_data), data_size ); 
 			current_index += data_size;
 

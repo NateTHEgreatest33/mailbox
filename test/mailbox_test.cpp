@@ -116,7 +116,7 @@ while( tx_itr != tx_test_cases.end() )
         {
         
         /* if value matches expected value  */
-        if( memcmp( &((tx_itr->second).second), &temp_data, sizeof(data_union)) )
+        if( memcmp( &((tx_itr->second).second), &temp_data, sizeof(data_union) ) == 0 )
         // if( (tx_itr->second).second == temp_data )
             {
             return_value.integer = tx_itr->first;
