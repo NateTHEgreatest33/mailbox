@@ -6,6 +6,14 @@ Mailbox API is a messaging interface built upon LoraAPI and messageAPI
 
 rough draft of changes w/ rx multi and rounds, still needs cleanup
 
+# Data Formatting
+This is how data is formatted in the 10 byte MessageAPI data buffer
+
+| Type | Data Format|
+| --- | --- |
+| Ack  | [Ack ID] [ Data to be Ack'ed Index] |
+| Round Update  | [Rnd Update ID ] [ New Round Value ] |
+| Data | [Index] [ Data ... ]  |
 
 ## RX Route
 - rx_runtime() 
