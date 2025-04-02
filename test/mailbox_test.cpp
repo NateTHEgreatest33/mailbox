@@ -45,21 +45,22 @@
 --------------------------------------------------------------------*/
 const std::unordered_map< uint32_t, std::pair<mbx_index, data_union> > rx_test_cases = 
 {
-{ 20, { mbx_index::FLOAT_RX_FROM_RPI_MSG, data_union{5.5}  } },
-{ 21, { mbx_index::INT_RX_FROM_RPI_MSG,   data_union{5}    } },
-{ 22, { mbx_index::BOOL_RX_FROM_RPI_MSG,  data_union{true} } },
-{ 23, { mbx_index::ASYNC_RX_FROM_RPI_MSG, data_union{10}   } },
-{ 24, { mbx_index::RND_5_RX_FROM_RPI_MSG, data_union{15}   } }
+{ 20, { mbx_index::FLOAT_RX_FROM_RPI_MSG, data_union{5.5}   } },
+{ 21, { mbx_index::INT_RX_FROM_RPI_MSG,   {.integer = 5}    } },
+{ 22, { mbx_index::BOOL_RX_FROM_RPI_MSG,  {.boolean = true} } },
+{ 23, { mbx_index::ASYNC_RX_FROM_RPI_MSG, {.integer = 10}   } },
+{ 24, { mbx_index::RND_5_RX_FROM_RPI_MSG, {.integer = 15}   } }
 };
 
 const std::unordered_map< uint32_t, std::pair<mbx_index, data_union> > tx_test_cases = 
 {
 /* return data     {index, expected data} */
-{ 10, { mbx_index::FLOAT_TX_FROM_RPI_MSG, data_union{5.5}  } },
+{ 10, { mbx_index::FLOAT_TX_FROM_RPI_MSG, data_union{5.5}   } },
 { 11, { mbx_index::INT_TX_FROM_RPI_MSG,   data_union{5}    } },
-{ 12, { mbx_index::BOOL_TX_FROM_RPI_MSG,  data_union{true} } },
-{ 13, { mbx_index::ASYNC_TX_FROM_RPI_MSG, data_union{10}   } },
-{ 14, { mbx_index::RND_5_TX_FROM_RPI_MSG, data_union{15}   } }
+{ 11, { mbx_index::INT_TX_FROM_RPI_MSG,   {.integer = 5}    } },
+{ 12, { mbx_index::BOOL_TX_FROM_RPI_MSG,  {.boolean = true} } },
+{ 13, { mbx_index::ASYNC_TX_FROM_RPI_MSG, {.integer = 10}   } },
+{ 14, { mbx_index::RND_5_TX_FROM_RPI_MSG, {.integer = 15}   } }
 };
 
 
