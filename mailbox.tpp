@@ -298,6 +298,11 @@ while( !p_rx_queue.is_empty() )
 	{
 	msgAPI_rx temp = p_rx_queue.front();
 
+	if( p_transmit_queue.is_full() )
+		{
+		Console.add_assert("queue is full while we are attempting to add"); //this is wrong bc only data requires an ack
+		}
+
 	switch( temp.r )
 		{
 		case msg_type::data:
@@ -391,7 +396,10 @@ for( i = 0; i < M; i++ )
 p_round_cntr = ( p_round_cntr + 1) % 100;
 
 //update transmit round
-p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) );
+if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
+	{
+	Console.add_assert("Error pushing to tx queue");
+	}
 
 //run transmit engine
 this->transmit_engine();
@@ -428,7 +436,10 @@ if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == f
 	return;
 
 msgAPI_tx msg_tx( msg_type::data, index );
-p_transmit_queue.push( msg_tx );
+if( !p_transmit_queue.push( msg_tx ) )
+	{
+	Console.add_assert("TX queue is full");
+	}
 
 }
 
@@ -921,27 +932,50 @@ Handle and aquire flag data while protected
 *
 *********************************************************************/
 template <int M>
-mbx_index core::mailbox<M>::verify_index( int idx )
+mbx_index core::mailbox<M>::verify_index
+	(
+	int idx
+	)
 {
-if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) )
+/*----------------------------------------------------------
+Return mbx_index::MAILBOX_NONE if index out of bounds
+----------------------------------------------------------*/
+if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) && idx >= 0 )
 	return mbx_index::MAILBOX_NONE;
 
+/*----------------------------------------------------------
+return index as mbx_index type
+----------------------------------------------------------*/
 return static_cast<mbx_index>(idx);
 } /* core::mailbox::verify_index() */
 
-
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::watchdog()
+*
+*   DESCRIPTION:
+*       watchdog pet function that forces a Tx round if we havent
+*		pet the watchdog
+*
+*   NOTE:
+*
+*********************************************************************/
 template <int M>
 void core::mailbox<M>::watchdog
 	( 
 	void 
 	)
 {
-//force a tx round
+
+/*----------------------------------------------------------
+If watchdog has not been set, force a transmit round
+----------------------------------------------------------*/
 if( !p_watchdog_pet )
 	{
 	p_transmit_round = current_location;
 	}
-}
+} /* core::mailbox::watchdog() */
 
 
 
