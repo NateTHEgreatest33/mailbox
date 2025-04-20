@@ -48,10 +48,10 @@ struct msgAPI_rx
 
 struct msgAPI_tx
     {
-        msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
-        msgAPI_tx() {}
-        msg_type r;
-        mbx_index i;
+    msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
+    msgAPI_tx() {}
+    msg_type r;
+    mbx_index i;
     };
 
 /*--------------------------------------------------------------------
@@ -90,28 +90,20 @@ class mailbox
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;
         int p_round_cntr;
-        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; //is this size right? im not sure since we can ACK ROUND AND TX
+        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; //is this size right? im not sure since we can ACK ROUND AND TX, in theory we could get multiple of the same & need multiple acks
         utl::queue<M, mbx_index> p_ack_queue;
         std::array<bool, M> p_awaiting_ack;
         utl::queue<M, msgAPI_rx> p_rx_queue;
-        // utl::queue<M, data_union
+        volatile int p_transmit_round; // tx round == local unit
+        mutex_t p_mailbox_protection;
+        bool p_watchdog_pet;
 
-
-        // tx_message lora_ack_pack_engine( void );
         tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
         void lora_unpack_engine( const rx_multi msg );
         void process_tx( mbx_index index );
         void process_rx_data( mbx_index index, data_union data ); //is this needed? why dont we use public update functions?? also we need to protect data w/ mutex
         void transmit_engine( void );
-        // void receive_engine( void );
-
         mbx_index verify_index( int idx );
-
-        volatile int p_transmit_round; // tx round == local unit
-        mutex_t p_mailbox_protection;
-        bool p_watchdog_pet;
-
-
 
     };
 
