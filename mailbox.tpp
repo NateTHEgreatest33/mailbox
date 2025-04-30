@@ -26,6 +26,10 @@
 #include <string.h> //memset
 
 
+#define TESTING (true)
+#ifdef TESTING
+#include <iostream>
+#endif
 
 
 
@@ -182,6 +186,9 @@ while( msg_index < msg.num_messages )
 			p_rx_queue.push( rx_data );
 
 			msg_data_index++; //move onto next message
+			#ifdef TESTING
+				std::cout << "[ACK - " << static_cast<int>(rx_data.i) << "] | ";
+			#endif
 
 			}
 		/*------------------------------------------------------
@@ -195,6 +202,10 @@ while( msg_index < msg.num_messages )
 			data.integer = rx_msg.message[msg_data_index];
 			msgAPI_rx rx_data( msg_type::update, static_cast<mbx_index>(MSG_UPDATE_ID), data ); //MSG_UPDATE_ID
 			p_rx_queue.push( rx_data );
+
+			#ifdef TESTING
+				std::cout << "[RND - " << rx_data.d.integer << "] | ";
+			#endif
 
 			//update past update
 			msg_data_index++;
@@ -246,6 +257,11 @@ while( msg_index < msg.num_messages )
 				--------------------------------------------------*/
 				msgAPI_rx rx_data( msg_type::data, mailbox_index, data );
 				p_rx_queue.push( rx_data );
+
+				#ifdef TESTING
+				std::cout << "[DATA - " << static_cast<int>(rx_data.i) << "] " << std::hex << rx_data.d.raw_data[0] << " " << rx_data.d.raw_data[1] << " " << rx_data.d.raw_data[2] << " " << rx_data.d.raw_data[3] << " | ";
+				#endif
+
 				}
 				
 			/*------------------------------------------------------
@@ -260,6 +276,11 @@ while( msg_index < msg.num_messages )
 	------------------------------------------------------*/
 	msg_index++;
 	}
+
+
+#ifdef TESTING
+	std::cout << std::endl;
+#endif
 }
 
 
@@ -584,7 +605,6 @@ location packet_dest;
 /*----------------------------------------------------------
 Local constants
 ----------------------------------------------------------*/
-//SOMETHING IS VERY WRONG WITH THIS FUNCTION!! IT IS CAUSING A CRASH EVERY TIME
 /*----------------------------------------------------------
 Init variables
 ----------------------------------------------------------*/
@@ -597,6 +617,10 @@ current_index          = 0;
 data_size              = 0;
 mailbox_index          = mbx_index::MAILBOX_NONE;
 packet_dest            = MODULE_NONE;
+
+#ifdef TESTING
+std::cout << "Sending: ";
+#endif
  
 /*----------------------------------------------------------
 loop untill Tx queue is empty or tx_message is full
@@ -772,6 +796,43 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			break;
 		}
 
+	#ifdef TESTING
+
+	switch( tx_msg.r )
+		{
+		case msg_type::ack:
+			std::cout << " [ACK - " << static_cast<int>(mailbox_index) <<"] |";
+			break;
+
+		case msg_type::data:
+			{
+			std::cout << " [DATA - " << static_cast<int>(mailbox_index) <<"] ";
+
+			flag_type throwaway_flag_data;
+			data_union temp_data;
+			temp_data = this->access( mailbox_index, throwaway_flag_data );
+			std::cout << std::hex << (int)(temp_data.raw_data[0]) << " " << (int)(temp_data.raw_data[1]) << " " << (int)(temp_data.raw_data[2]) << " " << (int)(temp_data.raw_data[3]);
+			std::cout <<" |";
+			break;
+			}
+
+		/*------------------------------------------------------
+		We update our local p_transmit_round on transmit by
+		doing a pre-increment within the update function. We do
+		this here otherwise we would continue to transmit until
+		the next module.
+		------------------------------------------------------*/
+		case msg_type::update:
+			std::cout << " [RND -" << p_transmit_round <<"] |";
+
+
+			break;
+
+		default:
+			break;
+		}
+	#endif
+
 
 	/*------------------------------------------------------
 	pop front of transmit queue
@@ -779,6 +840,10 @@ while( p_transmit_queue.size() > 0 && !message_full )
 	p_transmit_queue.pop();
 	
 	}
+
+#ifdef TESTING
+	std::cout << std::endl;
+#endif
 
 /*----------------------------------------------------------
 return message and set size to current index
