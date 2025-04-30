@@ -154,6 +154,10 @@ Initilize Local Variables
 msg_data_index = 0;
 msg_index      = 0;
 
+#ifdef TESTING
+std::cout << "Receiving: ";
+#endif
+
 /*------------------------------------------------------
 Parse through all messages received
 ------------------------------------------------------*/         	//data is packed [id][data....][id][data....]
@@ -259,7 +263,7 @@ while( msg_index < msg.num_messages )
 				p_rx_queue.push( rx_data );
 
 				#ifdef TESTING
-				std::cout << "[DATA - " << static_cast<int>(rx_data.i) << "] " << std::hex << rx_data.d.raw_data[0] << " " << rx_data.d.raw_data[1] << " " << rx_data.d.raw_data[2] << " " << rx_data.d.raw_data[3] << " | ";
+				std::cout << "[DATA - " << static_cast<int>(rx_data.i) << "] " << std::hex << (int)(rx_data.d.raw_data[0]) << " " << (int)(rx_data.d.raw_data[1]) << " " << (int)(rx_data.d.raw_data[2]) << " " << (int)(rx_data.d.raw_data[3]) << " | ";
 				#endif
 
 				}
@@ -823,7 +827,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		the next module.
 		------------------------------------------------------*/
 		case msg_type::update:
-			std::cout << " [RND -" << p_transmit_round <<"] |";
+			std::cout << " [RND - " << p_transmit_round <<"] |";
 
 
 			break;
