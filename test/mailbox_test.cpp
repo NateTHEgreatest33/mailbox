@@ -56,7 +56,7 @@ const std::unordered_map< uint32_t, std::pair<mbx_index, data_union> > tx_test_c
 {
 /* return data     {index, expected data} */
 { 10, { mbx_index::FLOAT_TX_FROM_RPI_MSG, data_union{5.5}   } },
-{ 11, { mbx_index::INT_TX_FROM_RPI_MSG,   data_union{5}    } },
+// { 11, { mbx_index::INT_TX_FROM_RPI_MSG,   data_union{5}    } },
 { 11, { mbx_index::INT_TX_FROM_RPI_MSG,   {.integer = 5}    } },
 { 12, { mbx_index::BOOL_TX_FROM_RPI_MSG,  {.boolean = true} } },
 { 13, { mbx_index::ASYNC_TX_FROM_RPI_MSG, {.integer = 10}   } },
@@ -115,11 +115,15 @@ while( tx_itr != tx_test_cases.end() )
     /* if data has been updated since last read */
     if( temp_flag != flag_type::NO_FLAG )
         {
-        
         /* if value matches expected value  */
         if( memcmp( &((tx_itr->second).second), &temp_data, sizeof(data_union) ) == 0 )
         // if( (tx_itr->second).second == temp_data )
             {
+
+            #include <iostream>
+            std::cout << "data match - index " << (int)(tx_itr->second).first;
+            std::cout << " set to " << std::hex << temp_data.integer << std::endl;
+
             return_value.integer = tx_itr->first;
             Mailbox.update( return_value, static_cast<int>(mbx_index::TEST_RX_FROM_RPI_MSG ) );//this needs to be updated
             }
