@@ -45,7 +45,7 @@
 --------------------------------------------------------------------*/
 const std::unordered_map< uint32_t, std::pair<mbx_index, data_union> > rx_test_cases = 
 {
-{ 20, { mbx_index::FLOAT_RX_FROM_RPI_MSG, data_union{5.5}   } },
+{ 20, { mbx_index::FLOAT_RX_FROM_RPI_MSG, {.flt = 5.5f }    } },
 { 21, { mbx_index::INT_RX_FROM_RPI_MSG,   {.integer = 5}    } },
 { 22, { mbx_index::BOOL_RX_FROM_RPI_MSG,  {.boolean = true} } },
 { 23, { mbx_index::ASYNC_RX_FROM_RPI_MSG, {.integer = 10}   } },
@@ -99,10 +99,13 @@ auto rx_itr = rx_test_cases.begin();
 data_union return_value;
 data_union temp_data;
 flag_type temp_flag;
+
+static data_union prev_data = { .integer = 0xFF };
 /*----------------------------------------------------------
 Initialize variables
 ----------------------------------------------------------*/
 return_value.integer = 0xFF;
+
 /*----------------------------------------------------------
 TX (from raspberry pi) test cases
 ----------------------------------------------------------*/
@@ -121,7 +124,7 @@ while( tx_itr != tx_test_cases.end() )
             {
 
             #include <iostream>
-            std::cout << "data match - index " << (int)(tx_itr->second).first;
+            std::cout << "tx data match - index " << (int)(tx_itr->second).first;
             std::cout << " set to " << std::hex << temp_data.integer << std::endl;
 
             return_value.integer = tx_itr->first;
@@ -152,6 +155,15 @@ while( rx_itr != rx_test_cases.end() )
 
     if( pair != rx_test_cases.end() )
         {
+        
+        if( prev_data.integer != temp_data.integer )
+            {
+            #include <iostream>
+            std::cout << "rx (new) data match - value " << temp_data.integer << std::endl;
+            prev_data.integer = temp_data.integer;
+        }
+
+
         Mailbox.update( (pair->second).second, static_cast<int>((pair->second).first)  );
         }
 
