@@ -89,12 +89,12 @@ class mailbox
 
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;
-        int p_round_cntr;
+        int p_round_cntr; /* count number of rounds that have passed, resets at 100  */
         utl::queue<(M+1), msgAPI_tx> p_transmit_queue; //is this size right? im not sure since we can ACK ROUND AND TX, in theory we could get multiple of the same & need multiple acks
         utl::queue<M, mbx_index> p_ack_queue;
         std::array<bool, M> p_awaiting_ack;
         utl::queue<M, msgAPI_rx> p_rx_queue;
-        volatile int p_transmit_round; // tx round == local unit
+        volatile int p_current_round; /* current round as set by round updater */
         mutex_t p_mailbox_protection;
         bool p_watchdog_pet;
 

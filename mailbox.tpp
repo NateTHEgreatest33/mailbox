@@ -92,23 +92,24 @@ core::mailbox<M>::mailbox
 	) :
 	p_mailbox_ref( global_mailbox )
 {
-// p_mailbox_ref = global_mailbox;
-p_transmit_round = 0;
-// std::static_assert( size_map.size() != NUM_TYPES );
+/*------------------------------------------------------
+Initilize current round and counter to zero. This is done 
+on all units upon startup to avoid a multi-broadcast
+------------------------------------------------------*/
+p_current_round = 0;
+p_round_cntr    = 0;
 
-// std::static_assert( (N > MAX_SIZE_GLOBAL_MAILBOX), "Mailbox size cannot be greater than MAX_SIZE_GLOBAL_MAILBOX" );
-//create max msg length (max unit8 size = 256?) and static assert the size of mailbox... or template typename T
-
-//init mutexs
+/*------------------------------------------------------
+initilize mailbox access mutex 
+------------------------------------------------------*/
 mutex_init( &p_mailbox_protection );
 
-p_round_cntr = 0;
+/*------------------------------------------------------
+initilize p_awaiting_ack array to false
+------------------------------------------------------*/
+memset(&p_awaiting_ack, 0, sizeof(bool)*M );
 
-for( int i = 0 ; i < M; i++ )
-	{
-	p_awaiting_ack[i] = false;
-	}
-}
+} /* core::mailbox<M>::mailbox() */
 
 /*********************************************************************
 *
@@ -125,7 +126,10 @@ core::mailbox<M>::~mailbox
 	void 
 	) 
 {
-}
+/*------------------------------------------------------
+left blank intentionally
+------------------------------------------------------*/
+} /* core::mailbox<M>::~mailbox() */
 
 /*********************************************************************
 *
@@ -139,20 +143,22 @@ core::mailbox<M>::~mailbox
 template <int M>
 void core::mailbox<M>::lora_unpack_engine
 	(
-	const rx_multi msg
+	const rx_multi msg /* loraAPI message object      */
 	)
 {
 /*------------------------------------------------------
 Local Variables
 ------------------------------------------------------*/
-int msg_data_index;
-int msg_index;
+int msg_data_index; /* data index for each lora msg   */
+int msg_index;      /* msg index for each lora msg    */
+rx_message rx_msg;  /* single messageAPI object       */
 
 /*------------------------------------------------------
 Initilize Local Variables
 ------------------------------------------------------*/
 msg_data_index = 0;
 msg_index      = 0;
+memset( &rx_msg, 0, sizeof(rx_message) );
 
 #ifdef TESTING
 std::cout << "Receiving: ";
@@ -160,15 +166,25 @@ std::cout << "Receiving: ";
 
 /*------------------------------------------------------
 Parse through all messages received
-------------------------------------------------------*/         	//data is packed [id][data....][id][data....]
-while( msg_index < msg.num_messages )
+------------------------------------------------------*/
+for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 	{
 	msg_data_index = 0;
-	rx_message rx_msg = msg.messages[msg_index];                  //add verify index here
+	rx_msg = msg.messages[msg_index]; 
+
+	/*------------------------------------------------------
+	skip message if errors are present
+	------------------------------------------------------*/ 
+	if( msg.errors[msg_index] != MSG_NO_ERROR )
+		{
+		Console.add_assert("Errors present in msgAPI messages");
+		continue;
+		}
 
 	/*------------------------------------------------------
 	Parse through all packed messages within the single 
-	message
+	message. Data is packed in the following format:
+	[idx][data....][ack][idx][rnd][rnd]
 	------------------------------------------------------*/   
 	while( msg_data_index < rx_msg.size )
 		{
@@ -228,7 +244,7 @@ while( msg_index < msg.num_messages )
 
 			if( mailbox_index == mbx_index::MAILBOX_NONE )
 				{
-				//error handle & exit
+				Console.add_assert("Invalid indx received by lora_parse_engine");
 				}
 
 			/*------------------------------------------------------
@@ -274,18 +290,13 @@ while( msg_index < msg.num_messages )
 			msg_data_index += data_size;
 			}
 		}
-
-	/*------------------------------------------------------
-	Move onto next message
-	------------------------------------------------------*/
-	msg_index++;
 	}
-
 
 #ifdef TESTING
 	std::cout << std::endl;
 #endif
-}
+
+} /* core::mailbox::lora_unpack_engine() */
 
 
 /*********************************************************************
@@ -305,20 +316,30 @@ void core::mailbox<M>::rx_runtime
 	void
 	)
 {
-rx_multi rx_data;
+/*------------------------------------------------------
+Local data
+------------------------------------------------------*/
+rx_multi rx_data;  /* messageAPI return object        */
 
+/*------------------------------------------------------
+Aquire all messages from last run
+------------------------------------------------------*/
 rx_data = messageAPI.get_multi_message();
 
-//fast exit
+/*------------------------------------------------------
+Fast exit if errors or no new messages
+------------------------------------------------------*/
 if( rx_data.num_messages == 0 || rx_data.global_errors != MSG_NO_ERROR )
 	return;
 
-//unpack data
-//NEED TO ADD ERROR CHECKING!! RX DATA MAY HAVE ERRORS!!!
+/*------------------------------------------------------
+Unpack all lora data
+------------------------------------------------------*/
+lora_unpack_engine( rx_data );	
 
-this->lora_unpack_engine( rx_data );	
-
-//handle p_rx_queue()
+/*------------------------------------------------------
+Handle Rx queue
+------------------------------------------------------*/
 while( !p_rx_queue.is_empty() )
 	{
 	msgAPI_rx temp = p_rx_queue.front();
@@ -354,7 +375,7 @@ while( !p_rx_queue.is_empty() )
 			break;
 
 		case msg_type::update:
-			p_transmit_round = temp.d.integer;
+			p_current_round = temp.d.integer;
 
 			break;
 		default:
@@ -398,7 +419,7 @@ process = false;
 
 
 //only run when current round == current location
-if( p_transmit_round != current_location )
+if( p_current_round != current_location )
 	return;
 
 p_watchdog_pet = true;
@@ -791,8 +812,8 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		------------------------------------------------------*/
 		case msg_type::update:
 			return_msg.message[current_index++] = MSG_UPDATE_ID;
-			return_msg.message[current_index++] = ( p_transmit_round + 1) % NUM_OF_MODULES;
-			p_transmit_round = ( p_transmit_round + 1) % NUM_OF_MODULES;
+			return_msg.message[current_index++] = ( p_current_round + 1) % NUM_OF_MODULES;
+			p_current_round = ( p_current_round + 1) % NUM_OF_MODULES;
 
 			break;
 
@@ -827,7 +848,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		the next module.
 		------------------------------------------------------*/
 		case msg_type::update:
-			std::cout << " [RND - " << p_transmit_round <<"] |";
+			std::cout << " [RND - " << p_current_round <<"] |";
 
 
 			break;
@@ -1042,7 +1063,7 @@ If watchdog has not been set, force a transmit round
 ----------------------------------------------------------*/
 if( !p_watchdog_pet )
 	{
-	p_transmit_round = current_location;
+	p_current_round = current_location;
 	}
 } /* core::mailbox::watchdog() */
 

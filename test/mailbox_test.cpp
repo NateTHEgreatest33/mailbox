@@ -56,7 +56,6 @@ const std::unordered_map< uint32_t, std::pair<mbx_index, data_union> > tx_test_c
 {
 /* return data     {index, expected data} */
 { 10, { mbx_index::FLOAT_TX_FROM_RPI_MSG, data_union{5.5}   } },
-// { 11, { mbx_index::INT_TX_FROM_RPI_MSG,   data_union{5}    } },
 { 11, { mbx_index::INT_TX_FROM_RPI_MSG,   {.integer = 5}    } },
 { 12, { mbx_index::BOOL_TX_FROM_RPI_MSG,  {.boolean = true} } },
 { 13, { mbx_index::ASYNC_TX_FROM_RPI_MSG, {.integer = 10}   } },
