@@ -442,12 +442,14 @@ void core::mailbox<M>::tx_runtime
 /*------------------------------------------------------
 Local Variables
 ------------------------------------------------------*/
-int i; /* index variable */
+int i;                   /* index variable            */
+mbx_index current_index; /* mbx_index variable        */
 
 /*------------------------------------------------------
 Initilize local variables
 ------------------------------------------------------*/
-i = 0;
+i             = 0;
+current_index = mbx_index::MAILBOX_NONE;
 
 /*------------------------------------------------------
 Fast exit: only run tx_runtime when p_current_round is
@@ -497,6 +499,26 @@ Update round counter & handle rollover
 ------------------------------------------------------*/
 p_round_cntr = ( p_round_cntr + 1) % RND_CNTR_ROLLOVER;
 
+/*----------------------------------------------------------
+Verify and clear ack queue. This is done prior to the 
+transmit engine and round update in order to
+1) clear ack queue (which is reset in tx_engine)
+2) resend messages w/ missing Acks
+----------------------------------------------------------*/
+while( !p_ack_queue.is_empty() )
+	{
+	current_index = p_ack_queue.front();
+
+	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
+		{
+		p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) );
+		}
+
+	p_ack_queue.pop();
+	}
+
+
+
 /*------------------------------------------------------
 Add Update transmit round to queue. If this operation
 fails due to the queue being full we will not update
@@ -510,8 +532,6 @@ if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE
 
 /*------------------------------------------------------
 Run tranmit engine to handle p_transmit_queue.
-
-This currently also does ack verification, which i think is wrong, we should move that here
 ------------------------------------------------------*/
 this->transmit_engine();
 
@@ -619,24 +639,6 @@ Local variables
 /*----------------------------------------------------------
 Init variables
 ----------------------------------------------------------*/
-
-/*----------------------------------------------------------
-Verify and clear ack queue. This is dont first in the
-engine so that we can fill this in again to verify for the 
-next round
-----------------------------------------------------------*/
-while( !p_ack_queue.is_empty() )
-	{
-	int current_index = static_cast<int>( p_ack_queue.front() );
-	
-	if( p_awaiting_ack[current_index] != false )
-		{
-		std::string assert_msg = "message failed to ack: " + std::to_string(current_index);
-		Console.add_assert( assert_msg );
-		}
-
-	p_ack_queue.pop();
-	}
 
 /*----------------------------------------------------------
 Empty trasmit queue and tx over messageAPI
