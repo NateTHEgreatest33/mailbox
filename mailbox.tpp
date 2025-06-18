@@ -40,10 +40,12 @@
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
-#define MAX_SIZE_GLOBAL_MAILBOX (254) //this is because the identfier needs to fit within a unint8t so max size - 256 minus ack id, update id
+#define MAX_SIZE_GLOBAL_MAILBOX ( 254  ) //this is because the identfier needs to fit within a unint8t so max size - 256 minus ack id, update id
 
-#define MSG_ACK_ID    (0xFF)
-#define MSG_UPDATE_ID (0xFE)
+#define MSG_ACK_ID              ( 0xFF )
+#define MSG_UPDATE_ID           ( 0xFE )
+
+#define RND_CNTR_ROLLOVER       ( 100  )
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -363,32 +365,41 @@ while( !p_rx_queue.is_empty() )
 		case msg_type::data:
 			{
 			/*------------------------------------------
-			process
+			Process (update) rx data
 			------------------------------------------*/	
 			this->process_rx_data( temp.i, temp.d );
 
-			//add rx'ed msg to ack list
+			/*------------------------------------------
+			Since we have rx'ed a index, add ack to tx
+			queue. If queue is full assert
+			------------------------------------------*/	
 			msgAPI_tx tx_msg( msg_type::ack, temp.i );
+
 			if( !p_transmit_queue.push( tx_msg ) )
 				{
 				Console.add_assert( "tx queue was full. failed to add ack to queue");
 				}
+
 			break;
 			}
+
 		/*----------------------------------------------
 		CASE: ack message type
 		----------------------------------------------*/
 		case msg_type::ack:
-			if( !p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
-				{
-				Console.add_assert( "un-requested ack received");
-				}
-			else
-				{
+			{
+			/*------------------------------------------
+			Reset p_awaiting_ack[] entry if ack was
+			expected, otherwise assert
+			------------------------------------------*/
+			if( p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
+			else
+				Console.add_assert( "un-requested ack received");
 
-				}
 			break;
+			}
+
 		/*----------------------------------------------
 		CASE: round update message type
 		----------------------------------------------*/
@@ -404,14 +415,13 @@ while( !p_rx_queue.is_empty() )
 			break;
 		}
 
+	/*--------------------------------------------------
+	Pop front of queue and continue while() loop
+	--------------------------------------------------*/
 	p_rx_queue.pop();
-
-
 	}
 
-////Console report if errors present
-
-}
+} /* core::mailbox<M>::rx_runtime() */
 
 /*********************************************************************
 *
@@ -429,51 +439,85 @@ void core::mailbox<M>::tx_runtime
 	void
 	)
 {
-int i;
-bool process;
+/*------------------------------------------------------
+Local Variables
+------------------------------------------------------*/
+int i; /* index variable */
 
-i       = 0;
-process = false;
+/*------------------------------------------------------
+Initilize local variables
+------------------------------------------------------*/
+i = 0;
 
-//DEBUG
-// p_transmit_round = current_location;
-
-
-//only run when current round == current location
+/*------------------------------------------------------
+Fast exit: only run tx_runtime when p_current_round is
+equal to current_location
+------------------------------------------------------*/
 if( p_current_round != current_location )
 	return;
 
+/*------------------------------------------------------
+Mark watchdog as pet
+------------------------------------------------------*/
 p_watchdog_pet = true;
 
-//loop through entire mailbox
+/*------------------------------------------------------
+Loop through entire mailbox
+------------------------------------------------------*/
 for( i = 0; i < M; i++ )
     {
+	/*--------------------------------------------------
+	Aquire reference to mailbox index
+	--------------------------------------------------*/
 	mailbox_type& currentMbx = p_mailbox_ref[i];
 
-	//skip any that arent tx
+	/*--------------------------------------------------
+	Skip index if not a TX mailbox
+	--------------------------------------------------*/
 	if( currentMbx.dir != direction::TX )
 		continue;
 
-	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) ) //issue! cant mod 0
+	/*--------------------------------------------------
+	Process TX entry if the following conditions are
+	met:
+	1) rate == ASYNC
+	2) p_round_cntr % rate == 0. This is simply a local
+	                             counter that relates to
+								 rate
+	--------------------------------------------------*/
+	if( currentMbx.upt_rt == update_rate::RT_ASYNC || ( ( p_round_cntr % static_cast<int>( currentMbx.upt_rt ) ) == 0 ) )
+		{
 		this->process_tx( static_cast<mbx_index>(i) );
+		}
 
     }
 
-//update clock w/ rollover @ 100
-p_round_cntr = ( p_round_cntr + 1) % 100;
+/*------------------------------------------------------
+Update round counter & handle rollover
+------------------------------------------------------*/
+p_round_cntr = ( p_round_cntr + 1) % RND_CNTR_ROLLOVER;
 
-//update transmit round
+/*------------------------------------------------------
+Add Update transmit round to queue. If this operation
+fails due to the queue being full we will not update
+our local p_current_round and our round will be re-run
+w/ no ack data so there should be room in the buffer.
+------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	Console.add_assert("Error pushing to tx queue");
+	Console.add_assert("Error pushing round update to TX queue");
 	}
 
-//run transmit engine
+/*------------------------------------------------------
+Run tranmit engine to handle p_transmit_queue.
+
+This currently also does ack verification, which i think is wrong, we should move that here
+------------------------------------------------------*/
 this->transmit_engine();
 
 //make sure we do an ack verify
 
-} /* core::mailbox:mailbox_runtime() */
+} /* core::mailbox<M>::tx_runtime */
 
 
 
@@ -588,7 +632,7 @@ while( !p_ack_queue.is_empty() )
 	if( p_awaiting_ack[current_index] != false )
 		{
 		std::string assert_msg = "message failed to ack: " + std::to_string(current_index);
-		//Console.add_assert( assert_msg );
+		Console.add_assert( assert_msg );
 		}
 
 	p_ack_queue.pop();
@@ -605,16 +649,6 @@ while( !p_transmit_queue.is_empty() )
 		//Console.add_assert( "MessageAPI unable to TX" ); //this is hit when it shouldnt be?
 		}
 	}
-	// p_transmit_queue.pop();
-	// }
-// tx_message msg;
-// msg.destination = MODULE_ALL;
-// msg.size = 2;
-// msg.message[0] = MSG_UPDATE_ID;
-// msg.message[1] = 0x00;
-// messageAPI.send_message( msg );
-
-// p_transmit_round = 0; //disable rx
 
 } /* core::mailbox<M>::transmit_engine */
 
