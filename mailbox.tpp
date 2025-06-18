@@ -320,6 +320,13 @@ void core::mailbox<M>::rx_runtime
 Local data
 ------------------------------------------------------*/
 rx_multi rx_data;  /* messageAPI return object        */
+msgAPI_rx temp;    /* unpacked msgAPI object          */
+
+/*------------------------------------------------------
+Initilize local data
+------------------------------------------------------*/
+memset( &rx_data, 0x00, sizeof(rx_multi));
+memset( &temp, 0x00, sizeof(msgAPI_rx));
 
 /*------------------------------------------------------
 Aquire all messages from last run
@@ -342,44 +349,58 @@ Handle Rx queue
 ------------------------------------------------------*/
 while( !p_rx_queue.is_empty() )
 	{
-	msgAPI_rx temp = p_rx_queue.front();
-
-	if( p_transmit_queue.is_full() )
-		{
-		Console.add_assert("queue is full while we are attempting to add"); //this is wrong bc only data requires an ack
-		}
+	/*--------------------------------------------------
+	Aquire front of rx queue & switch based upon message
+	type
+	--------------------------------------------------*/
+	temp = p_rx_queue.front();
 
 	switch( temp.r )
 		{
+		/*----------------------------------------------
+		CASE: data message type
+		----------------------------------------------*/
 		case msg_type::data:
 			{
+			/*------------------------------------------
+			process
+			------------------------------------------*/	
 			this->process_rx_data( temp.i, temp.d );
 
 			//add rx'ed msg to ack list
 			msgAPI_tx tx_msg( msg_type::ack, temp.i );
-			p_transmit_queue.push( tx_msg );
+			if( !p_transmit_queue.push( tx_msg ) )
+				{
+				Console.add_assert( "tx queue was full. failed to add ack to queue");
+				}
 			break;
 			}
-
+		/*----------------------------------------------
+		CASE: ack message type
+		----------------------------------------------*/
 		case msg_type::ack:
 			if( !p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				{
-				//Console.add_assert( "un-requested ack received");
+				Console.add_assert( "un-requested ack received");
 				}
 			else
 				{
 				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
 
-				//every 1s maybe do an ack verify <-- yes ack verify happens the tx_process AFTER sent
 				}
 			break;
-
+		/*----------------------------------------------
+		CASE: round update message type
+		----------------------------------------------*/
 		case msg_type::update:
 			p_current_round = temp.d.integer;
 
 			break;
+		/*----------------------------------------------
+		DEFAULT: defensive programing
+		----------------------------------------------*/
 		default:
-			//Console.add_assert( "malformed return type" );
+			Console.add_assert( "malformed return type" );
 			break;
 		}
 
@@ -449,6 +470,8 @@ if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE
 
 //run transmit engine
 this->transmit_engine();
+
+//make sure we do an ack verify
 
 } /* core::mailbox:mailbox_runtime() */
 
