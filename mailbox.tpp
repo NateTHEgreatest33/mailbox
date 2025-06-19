@@ -185,35 +185,57 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 
 		/*------------------------------------------------------
 		Handle message if it is an ack
+
+		Format is [ACK_ID][Index]
 		------------------------------------------------------*/
 		if( rx_msg.message[msg_data_index] == MSG_ACK_ID )
 			{
-			msg_data_index++; //get to data
+			/*--------------------------------------------------
+			Update pointer to index portion
+			--------------------------------------------------*/
+			msg_data_index++;
 
-			//data is cleared beforehand
+			/*--------------------------------------------------
+			Generate rx queue object for ack & add to queue
+			--------------------------------------------------*/
 			msgAPI_rx rx_data( msg_type::ack, this->verify_index(rx_msg.message[msg_data_index] ), data );
 			p_rx_queue.push( rx_data );
 
-			msg_data_index++; //move onto next message TESTING
+			/*--------------------------------------------------
+			Update pointer for processing
+			--------------------------------------------------*/
+			msg_data_index++;
 
 			}
 		/*------------------------------------------------------
 		Handle message if it is a round update
+
+		Format is [RND_ID][new_round]
 		------------------------------------------------------*/
 		else if( rx_msg.message[msg_data_index] == MSG_UPDATE_ID )
 			{
-			// trasmit_round = (trasmit_round + 1 ) % NUM_DESTINATIONS;
-			msg_data_index++; //get to data
+			/*--------------------------------------------------
+			Update pointer to new round portion
+			--------------------------------------------------*/
+			msg_data_index++;
 
+			/*--------------------------------------------------
+			Generate rx queue object for round update & add to 
+			queue
+			--------------------------------------------------*/
 			data.integer = rx_msg.message[msg_data_index];
-			msgAPI_rx rx_data( msg_type::update, static_cast<mbx_index>(MSG_UPDATE_ID), data ); //MSG_UPDATE_ID
+			msgAPI_rx rx_data( msg_type::update, static_cast<mbx_index>(MSG_UPDATE_ID), data );
 			p_rx_queue.push( rx_data );
 
-			//update past update
+			/*--------------------------------------------------
+			Update pointer for processing
+			--------------------------------------------------*/
 			msg_data_index++;
 			}
 		/*------------------------------------------------------
 		Handle message if it is actual data
+
+		Format is [Index][data...]
 		------------------------------------------------------*/
 		else
 			{
@@ -222,11 +244,19 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			------------------------------------------------------*/
 			mbx_index mailbox_index = this->verify_index( rx_msg.message[msg_data_index] );
 
-			msg_data_index++; //get to data section
+			/*--------------------------------------------------
+			Update pointer to data portion
+			--------------------------------------------------*/
+			msg_data_index++;
 
+			/*--------------------------------------------------
+			If index is invalid assert and break from processing
+			this message and continue to next message in rx_multi
+			--------------------------------------------------*/
 			if( mailbox_index == mbx_index::MAILBOX_NONE )
 				{
 				Console.add_assert("Invalid indx received by lora_parse_engine");
+				break;
 				}
 
 			/*------------------------------------------------------
@@ -906,7 +936,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 	p_transmit_queue.pop();
 	
 	}
-	
+
 /*----------------------------------------------------------
 return message and set size to current index
 ----------------------------------------------------------*/
