@@ -20,20 +20,16 @@
 
 
 #include <functional>
-#include <type_traits> //for static assert
+#include <type_traits>
 #include <unordered_map>
 
-#include <string.h> //memset
+#include <string.h>
 
 
 #define TESTING (true)
 #ifdef TESTING
 #include <iostream>
 #endif
-
-//TODO: change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array
-
-
 /*--------------------------------------------------------------------
                           GLOBAL NAMESPACES
 --------------------------------------------------------------------*/
@@ -41,13 +37,16 @@
 /*--------------------------------------------------------------------
                           LITERAL CONSTANTS
 --------------------------------------------------------------------*/
-#define MAX_SIZE_GLOBAL_MAILBOX ( 254  ) //this is because the identfier needs to fit within a unint8t so max size - 256 minus ack id, update id
+#define MAX_SIZE_GLOBAL_MAILBOX ( 254  ) /* Max size of a global 
+											mailbox: 256 minus ack id
+											and update id 		   */
+#define MSG_ACK_ID              ( 0xFF ) /* ACK identifier         */
+#define MSG_UPDATE_ID           ( 0xFE ) /* Round Update identifier
+																   */
 
-#define MSG_ACK_ID              ( 0xFF )
-#define MSG_UPDATE_ID           ( 0xFE )
-
-#define RND_CNTR_ROLLOVER       ( 100  )
-#define INDEX_BYTE_SIZE         ( 1    )
+#define RND_CNTR_ROLLOVER       ( 100  ) /* Round rollover value   */
+#define INDEX_BYTE_SIZE         ( 1    ) /* size of index byte in 
+											message				   */
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -76,9 +75,6 @@ extern core::messageInterface messageAPI;
 
 /*--------------------------------------------------------------------
                               PROCEDURES
---------------------------------------------------------------------*/
-/*--------------------------------------------------------------------
-mailbox()
 --------------------------------------------------------------------*/
 /*********************************************************************
 *
@@ -913,19 +909,19 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			----------------------------------------------*/
 			p_awaiting_ack[current_index] = true;
 			p_ack_queue.push( mailbox_index );
-
 			break;
 
 		/*--------------------------------------------------
 		CASE: msg_type::update
 		
-		We update our local p_transmit_round here due to
+		We update our local p_transmit_round here to keep
+		the current (this) module in sync as it will not
+		Rx this message due to Lora being in TX mode
 		--------------------------------------------------*/
 		case msg_type::update:
 			return_msg.message[current_index++] = MSG_UPDATE_ID;
 			return_msg.message[current_index++] = ( p_current_round + 1) % NUM_OF_MODULES;
 			p_current_round = ( p_current_round + 1) % NUM_OF_MODULES;
-
 			break;
 
 		/*--------------------------------------------------
@@ -986,8 +982,6 @@ while( p_transmit_queue.size() > 0 && !message_full )
 
 /*----------------------------------------------------------
 return message and set size to current index
-
-if we dont set size, message size == 0
 ----------------------------------------------------------*/
 return_msg.size = current_index;
 return return_msg;
@@ -1030,7 +1024,7 @@ only be able to set RX items
 if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
     ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
 	{
-	//Console.add_assert( "Mailbox::update() is being called on data it cannot update");
+	Console.add_assert( "Mailbox::update() is being called on data it cannot update");
 	return false;
 	}
 
@@ -1038,7 +1032,7 @@ if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
 Update mailbox while protected
 ----------------------------------------------------------*/
 	{
-	// utl::mutex_lock lock( p_mailbox_protection ); //disabling for the time being
+	utl::mutex_lock lock( p_mailbox_protection );
 
 	p_mailbox_ref[global_mbx_indx].data = d;
 
@@ -1060,6 +1054,7 @@ Update mailbox while protected
 return true with data having been 
 ----------------------------------------------------------*/
 return true;
+
 } /* core::mailbox<M>::update() */
 
 /*********************************************************************
@@ -1109,7 +1104,7 @@ mailbox_type& current_mbx = p_mailbox_ref[ static_cast<int>(global_mbx_indx) ];
 Handle and aquire flag data while protected
 ----------------------------------------------------------*/
 	{
-	// utl::mutex_lock lock( p_mailbox_protection ); //issue for the time being, disabling for now
+	utl::mutex_lock lock( p_mailbox_protection );
 
 	current_flag = current_mbx.flag;
 
@@ -1151,6 +1146,7 @@ if( idx >= static_cast<int>( mbx_index::MAILBOX_NONE ) && idx >= 0 )
 return index as mbx_index type
 ----------------------------------------------------------*/
 return static_cast<mbx_index>(idx);
+
 } /* core::mailbox::verify_index() */
 
 /*********************************************************************
@@ -1182,21 +1178,11 @@ if( !p_watchdog_pet )
 } /* core::mailbox::watchdog() */
 
 
-
-
-
-
-// template <int M>
-// void core::mailbox<M>::receive_engine( void ){}
-//idea here is that we would run this and pull/update
-
 /*
 more thoughts
 
-1) table should be global accross units, which means terms like source and destination, make sense? no dual communication
-2) TX should happen every 1s to avoid having lora in TX too long
-3) TX should pack using the transmit queue and transmit engine
-4) does update rate make sense or should it just always be async? not sure on this one 
+1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
+2) Change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array                         -- YES! v1.1 update 
 
 
 */
