@@ -31,6 +31,7 @@
 #include <iostream>
 #endif
 
+//TODO: change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array
 
 
 /*--------------------------------------------------------------------
@@ -46,6 +47,7 @@
 #define MSG_UPDATE_ID           ( 0xFE )
 
 #define RND_CNTR_ROLLOVER       ( 100  )
+#define INDEX_BYTE_SIZE         ( 1    )
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -499,16 +501,20 @@ Update round counter & handle rollover
 ------------------------------------------------------*/
 p_round_cntr = ( p_round_cntr + 1) % RND_CNTR_ROLLOVER;
 
-/*----------------------------------------------------------
+/*------------------------------------------------------
 Verify and clear ack queue. This is done prior to the 
 transmit engine and round update in order to
 1) clear ack queue (which is reset in tx_engine)
 2) resend messages w/ missing Acks
-----------------------------------------------------------*/
+------------------------------------------------------*/
 while( !p_ack_queue.is_empty() )
 	{
 	current_index = p_ack_queue.front();
 
+	/*--------------------------------------------------
+	If awaiting ack is not false this means we have 
+	missed an ack, if this is the case, resend data
+	--------------------------------------------------*/
 	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
 		{
 		p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) );
@@ -516,8 +522,6 @@ while( !p_ack_queue.is_empty() )
 
 	p_ack_queue.pop();
 	}
-
-
 
 /*------------------------------------------------------
 Add Update transmit round to queue. If this operation
@@ -535,11 +539,7 @@ Run tranmit engine to handle p_transmit_queue.
 ------------------------------------------------------*/
 this->transmit_engine();
 
-//make sure we do an ack verify
-
 } /* core::mailbox<M>::tx_runtime */
-
-
 
 /*********************************************************************
 *
@@ -553,28 +553,29 @@ this->transmit_engine();
 template <int M>
 void core::mailbox<M>::process_tx
 	( 
-	mbx_index index	 
+	mbx_index index	/* mailbox index to process */
 	)
 {
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
 mailbox_type& current_mailbox = p_mailbox_ref[ static_cast<int>(index) ];
+msgAPI_tx msg_tx( msg_type::data, index );
 
 /*----------------------------------------------------------
-if current mailbox is ASYNC, only update when flag is 
-tripped
+If current mailbox is ASYNC we only update when flag is 
+tripped. Exit if no flag
 ----------------------------------------------------------*/
 if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == flag_type::NO_FLAG )
 	return;
 
-msgAPI_tx msg_tx( msg_type::data, index );
+/*----------------------------------------------------------
+Add msgAPI_tx object to Tx queue
+----------------------------------------------------------*/
 if( !p_transmit_queue.push( msg_tx ) )
-	{
 	Console.add_assert("TX queue is full");
-	}
 
-}
+} /* core::mailbox<M>::process_tx() */
 
 
 /*********************************************************************
@@ -594,6 +595,10 @@ void core::mailbox<M>::process_rx_data
 	data_union data
 	)
 {
+
+//TODO: come back to this function & decide if we even want it
+
+
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
@@ -645,10 +650,11 @@ Empty trasmit queue and tx over messageAPI
 ----------------------------------------------------------*/
 while( !p_transmit_queue.is_empty() )
 	{
-	tx_message lora_frame = lora_pack_engine();   //this needs to be reworked for adding acks, but ack format is WAY different than a normal format so need to think what the right way is here, maybe a tx struct?
+	tx_message lora_frame = lora_pack_engine();  
+
 	if( !messageAPI.send_message( lora_frame ) )
 		{
-		//Console.add_assert( "MessageAPI unable to TX" ); //this is hit when it shouldnt be?
+		Console.add_assert( "MessageAPI unable to TX" ); 
 		}
 	}
 
@@ -679,21 +685,22 @@ tx_message core::mailbox<M>::lora_pack_engine
 /*----------------------------------------------------------
 Local variables
 ----------------------------------------------------------*/
-tx_message  return_msg;
-bool        message_full;
-int         current_index;
-int         data_size;
-mbx_index   mailbox_index;
-msgAPI_tx   tx_msg;
-location packet_dest;
-/*----------------------------------------------------------
-Local constants
-----------------------------------------------------------*/
+tx_message  return_msg;        /* */
+bool        message_full;      /* */
+int         current_index;     /* */
+int         data_size;         /* */
+mbx_index   mailbox_index;     /* */
+msgAPI_tx   tx_msg;            /* */
+location packet_dest;          /* */
+mailbox_type current_mailbox;  /* */
+flag_type throwaway_flag_data; /* */
+data_union temp_data;          /* */
 /*----------------------------------------------------------
 Init variables
 ----------------------------------------------------------*/
 memset( &return_msg, 0, sizeof( tx_message ) );
-memset( &tx_msg, 0, sizeof( msgAPI_tx ) );    
+memset( &tx_msg, 0, sizeof( msgAPI_tx ) );   
+memset( &current_mailbox, 0, sizeof(mailbox_type)); 
 
 return_msg.destination = MODULE_NONE;
 message_full           = false;
@@ -712,27 +719,28 @@ loop untill Tx queue is empty or tx_message is full
 while( p_transmit_queue.size() > 0 && !message_full )
 	{
 	/*------------------------------------------------------
-	Aquire the current request
+	Aquire the current request & reset loop data
 	------------------------------------------------------*/
 	tx_msg        = p_transmit_queue.front();
 	mailbox_index = tx_msg.i;
 
-	/*------------------------------------------------------
-	Initially I thought we would need this to be a reference
-	to the actual mailbox, however after digging through the
-	code I decided we can make a copy since we are pulling
-	data and not storing it. To mitigate the risk of user
-	code writing a request while we in the middle of a tran
-	------------------------------------------------------*/
-	mailbox_type current_mailbox;
+	memset( &current_mailbox, 0, sizeof(mailbox_type));
 
+	/*------------------------------------------------------
+	Verify index, assuming we are not an msg::type_update (
+	which has no index)
+	------------------------------------------------------*/
 	if( tx_msg.r != msg_type::update )
 		{
 		if( verify_index( static_cast<int>(mailbox_index) ) == mbx_index::MAILBOX_NONE )
 			{
+			/*----------------------------------------------
+			clear out return data and exit
+			----------------------------------------------*/
 			memset( &return_msg, 0, sizeof( tx_message ) );
 			return return_msg;
 			}
+
 		current_mailbox = p_mailbox_ref[ static_cast<int>(mailbox_index) ];
 		}
 
@@ -741,29 +749,51 @@ while( p_transmit_queue.size() > 0 && !message_full )
 	------------------------------------------------------*/
 	switch( tx_msg.r )
 		{
+		/*--------------------------------------------------
+		CASE: msg_type::ack
+		CASE: msg_type::update
+
+		intentional fallthrough as ack/update data size are
+		the same
+		--------------------------------------------------*/
 		case msg_type::ack:
 		case msg_type::update:
 			data_size = 1;
 			break;
 
+		/*--------------------------------------------------
+		CASE: msg_type::data
+		--------------------------------------------------*/
 		case msg_type::data:
-			{ // {} required due to creating itr inside of switch case statement, kinda weird
-			/*------------------------------------------------------
-			Aquire data size. This must be done using *.find() due
-			to the fact that the std::map is defined as const
-			------------------------------------------------------*/
+			{
+			/*----------------------------------------------
+			Aquire data size. This must be done using 
+			*.find() due to the fact that the std::map is 
+			defined as const
+			----------------------------------------------*/
 			auto itr = data_size_map.find( current_mailbox.type );
 			if( itr == data_size_map.end() )
 				{
-				// //Console.add_assert( "map was called with invalid key");                        //debug change
+				/*------------------------------------------
+				if no size was found in data_size_map exit 
+				null msg. this should not happen but is 
+				defensive programing
+				------------------------------------------*/
 				memset( &return_msg, 0, sizeof( tx_message ) );
 				return return_msg;
 				}
-
+			/*----------------------------------------------
+			Set data size
+			----------------------------------------------*/
 			data_size = itr->second;
 			break;
 			}
 
+		/*--------------------------------------------------
+		CASE: default case (defensive programing)
+
+		Exit since unexpected case is reached
+		--------------------------------------------------*/
 		default:
 			data_size = 0;
 			memset( &return_msg, 0, sizeof( tx_message ) );
@@ -773,14 +803,15 @@ while( p_transmit_queue.size() > 0 && !message_full )
 
 	/*------------------------------------------------------
 	Determine if we can handle another message based upon
-	how full the current message is
+	how full the current message is. If we are full, break
+	from loop
 
-	+1 is to include index byte
+	+1 (INDEX_BYTE_SIZE) is to include index byte in
+	addition to data
 	------------------------------------------------------*/
-	// if( current_index + data_size + 1 > MAX_LORA_MSG_SIZE ) --> MAX_LORA_MSG_SIZE is 128, does this make sense given we are packing ina messageAPI? no
-	if( current_index + data_size + 1 > MAX_MSG_LENGTH )
+	if( current_index + data_size + INDEX_BYTE_SIZE > MAX_MSG_LENGTH )
 		{
-		message_full = true;
+		message_full    = true;
 		return_msg.size = current_index;
 		break;
 		}
@@ -791,15 +822,30 @@ while( p_transmit_queue.size() > 0 && !message_full )
 	------------------------------------------------------*/
 	switch ( tx_msg.r )
 		{
+		/*--------------------------------------------------
+		CASE: msg_type::data
+		--------------------------------------------------*/
 		case msg_type::data:
 			packet_dest = current_mailbox.destination;
 			break;
+		
+		/*--------------------------------------------------
+		CASE: msg_type::update
+		--------------------------------------------------*/
 		case msg_type::update:
 			packet_dest = MODULE_ALL;
 			break;
+		
+		/*--------------------------------------------------
+		CASE: msg_type::ack
+		--------------------------------------------------*/
 		case msg_type::ack:
 			packet_dest = current_mailbox.source;
 			break;
+		
+		/*--------------------------------------------------
+		CASE: default case
+		--------------------------------------------------*/
 		default:
 			break;
 		}
@@ -831,44 +877,50 @@ while( p_transmit_queue.size() > 0 && !message_full )
 	------------------------------------------------------*/
 	switch( tx_msg.r )
 		{
+		/*--------------------------------------------------
+		CASE: msg_type::ack
+		--------------------------------------------------*/
 		case msg_type::ack:
 			return_msg.message[current_index++] = MSG_ACK_ID;
 			return_msg.message[current_index++] = static_cast<int>(mailbox_index);
-
 			break;
 
+		/*--------------------------------------------------
+		CASE: msg_type::data
+		--------------------------------------------------*/
 		case msg_type::data:
-			{
 			return_msg.message[current_index++] = static_cast<int>(mailbox_index);
 
-			/*------------------------------------------------------
-			memcopy data using data size of mailbox index and update
-			current index
-			------------------------------------------------------*/
-			// memcpy( &(return_msg.message[current_index]), &(current_mailbox.data), data_size ); 
-			flag_type throwaway_flag_data;
-			// data_union temp_data = this->access( mailbox_index, throwaway_flag_data );
-			data_union temp_data;
-			// temp_data.flt = 0.0;
+			/*----------------------------------------------
+			Clear flag and temp_data variables
+			----------------------------------------------*/
+			memset( &throwaway_flag_data, 0, sizeof(flag_type) );
+			memset( &temp_data, 0, sizeof(data_union) );
+
+			/*----------------------------------------------
+			Access (mutex protected) and memcopy data 
+			----------------------------------------------*/
 			temp_data = this->access( mailbox_index, throwaway_flag_data );
 			memcpy( &(return_msg.message[current_index]), &(temp_data), data_size ); 
+
+			/*----------------------------------------------
+			Update index based upon data size
+			----------------------------------------------*/
 			current_index += data_size;
 
-			/*------------------------------------------------------
-			add data to ack queue
-			------------------------------------------------------*/
+			/*----------------------------------------------
+			Add data to ack queue
+			----------------------------------------------*/
 			p_awaiting_ack[current_index] = true;
 			p_ack_queue.push( mailbox_index );
 
 			break;
-			}
 
-		/*------------------------------------------------------
-		We update our local p_transmit_round on transmit by
-		doing a pre-increment within the update function. We do
-		this here otherwise we would continue to transmit until
-		the next module.
-		------------------------------------------------------*/
+		/*--------------------------------------------------
+		CASE: msg_type::update
+		
+		We update our local p_transmit_round here due to
+		--------------------------------------------------*/
 		case msg_type::update:
 			return_msg.message[current_index++] = MSG_UPDATE_ID;
 			return_msg.message[current_index++] = ( p_current_round + 1) % NUM_OF_MODULES;
@@ -876,6 +928,9 @@ while( p_transmit_queue.size() > 0 && !message_full )
 
 			break;
 
+		/*--------------------------------------------------
+		CASE: default case
+		--------------------------------------------------*/
 		default:
 			break;
 		}
@@ -1125,6 +1180,9 @@ if( !p_watchdog_pet )
 	p_current_round = current_location;
 	}
 } /* core::mailbox::watchdog() */
+
+
+
 
 
 
