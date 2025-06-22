@@ -1138,8 +1138,11 @@ if( !p_watchdog_pet )
 /*
 more thoughts
 
+0) add function for round update instead of doing it in the lora pack engine (i think?) this makes it way more clear      -- Yes v1.0 update
+
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
 2) Change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array                         -- YES! v1.1 update 
-
+3) add back engine var to mailbox map, each "engine" will handle its on tx/rx queue, remove lora pack/unpack junk.
+   interface format will have common *._add_tx_queue(), *._rx_runtime(&global_rx_queue), *.tx_runtime()?  		 		  -- Yes v1.1 update
 
 */
