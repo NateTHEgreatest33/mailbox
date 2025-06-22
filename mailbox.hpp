@@ -22,7 +22,6 @@
 #include <unordered_map>
 #include <array>
 
-
 #include "pico/mutex.h"
 
 /*--------------------------------------------------------------------
@@ -34,24 +33,30 @@
 --------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
-                            TYPES/ENUMS
+                         STRUCTS/TYPES/ENUMS
 --------------------------------------------------------------------*/
-enum struct msg_type { data, update, ack, num_rtn_type };
-struct msgAPI_rx
+enum struct msg_type /* message type (from un/pack engine)          */
+    {
+    data,            /* mailbox entry message type                  */
+    update,          /* round update message type                   */
+    ack,             /* ack message type                            */
+    num_rtn_type     /* number of message types                     */
+    };
+struct msgAPI_rx /* receive message data mover                      */
 	{
     msgAPI_rx( msg_type rtn, mbx_index idx, data_union data ) : r(rtn), i(idx), d(data) {}
-    msgAPI_rx() {}
-	msg_type r;
-	mbx_index i;
-	data_union d;
-	}; //if index == 0xFF --> ack
+    msgAPI_rx() {} 
+	msg_type r;   /* message type                                   */
+	mbx_index i;  /* message mailbox ptr                            */
+	data_union d; /* message data variable                          */
+	};
 
-struct msgAPI_tx
+struct msgAPI_tx /* transmit data request mover                     */
     {
     msgAPI_tx( msg_type m_type, mbx_index idx ) : r(m_type), i(idx) {}
     msgAPI_tx() {}
-    msg_type r;
-    mbx_index i;
+    msg_type r;  /* message type                                    */
+    mbx_index i; /* message mailbox ptr                             */
     };
 
 /*--------------------------------------------------------------------
@@ -79,31 +84,34 @@ template<int M>
 class mailbox
     {
     public:
-        mailbox( std::array<mailbox_type, M>& global_mailbox );
-        void rx_runtime( void );
-        void tx_runtime( void );
-        void watchdog( void );
-        data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true );
-        bool update( data_union d, int global_mbx_indx, bool user_mode = true );
-        ~mailbox( void );
+        mailbox( std::array<mailbox_type, M>& global_mailbox ); /* constructor   */
+        ~mailbox();                                             /* deconstructor */
+
+        void rx_runtime( void );                                /* rx_runtime    */
+        void tx_runtime( void );                                /* tx_runtime    */
+        void watchdog( void );                                  /* watchdog fn   */
+
+        data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true ); /* mailbox data access */
+        bool update( data_union d, int global_mbx_indx, bool user_mode = true );                         /* mailbox data update */
 
     private:
-        std::array<mailbox_type, M>& p_mailbox_ref;
-        int p_round_cntr; /* count number of rounds that have passed, resets at 100  */
-        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; //is this size right? im not sure since we can ACK ROUND AND TX, in theory we could get multiple of the same & need multiple acks
-        utl::queue<M, mbx_index> p_ack_queue;
-        std::array<bool, M> p_awaiting_ack;
-        utl::queue<M, msgAPI_rx> p_rx_queue;
-        volatile int p_current_round; /* current round as set by round updater */
-        mutex_t p_mailbox_protection;
-        bool p_watchdog_pet;
+        std::array<mailbox_type, M>& p_mailbox_ref; /* global mailbox map reference */
+        int p_round_cntr;                           /* count number of rounds       */
 
-        tx_message lora_pack_engine( void ); //this should be somewhere else, engine Tx type should have its own engine
-        void lora_unpack_engine( const rx_multi msg );
-        void process_tx( mbx_index index );
-        void process_rx_data( mbx_index index, data_union data ); //is this needed? why dont we use public update functions?? also we need to protect data w/ mutex
-        void transmit_engine( void );
-        mbx_index verify_index( int idx );
+        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; /* transmit queue            */
+        utl::queue<M, mbx_index> p_ack_queue;          /* ack queue                 */
+        std::array<bool, M> p_awaiting_ack;            /* awaiting ack list         */
+        utl::queue<M, msgAPI_rx> p_rx_queue;           /* receive queue             */
+        volatile int p_current_round;                  /* current round             */
+        mutex_t p_mailbox_protection;                  /* mailbox update mutex      */
+        bool p_watchdog_pet;                           /* watchdog pet variable     */
+
+        tx_message lora_pack_engine( void );           /* pack lora messages            */
+        void lora_unpack_engine( const rx_multi msg ); /* unpack lora messages          */
+        void process_tx( mbx_index index );            /* process tx data               */
+        void process_rx_data( mbx_index index, data_union data ); /* process rx data    */
+        void transmit_engine( void );                  /* transmit engine               */
+        mbx_index verify_index( int idx );             /* verify mailbox index validity */
 
     };
 

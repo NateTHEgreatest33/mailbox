@@ -181,7 +181,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 		clear & setup data union
 		------------------------------------------------------*/
 		data_union data;
-		data.integer = 0;
+		data.uint32 = 0;
 
 		/*------------------------------------------------------
 		Handle message if it is an ack
@@ -223,7 +223,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			Generate rx queue object for round update & add to 
 			queue
 			--------------------------------------------------*/
-			data.integer = rx_msg.message[msg_data_index];
+			data.uint32 = rx_msg.message[msg_data_index];
 			msgAPI_rx rx_data( msg_type::update, static_cast<mbx_index>(MSG_UPDATE_ID), data );
 			p_rx_queue.push( rx_data );
 
@@ -405,7 +405,7 @@ while( !p_rx_queue.is_empty() )
 		CASE: round update message type
 		----------------------------------------------*/
 		case msg_type::update:
-			p_current_round = temp.d.integer;
+			p_current_round = temp.d.uint32;
 
 			break;
 		/*----------------------------------------------
@@ -1041,7 +1041,7 @@ data_union rtn_data;
 /*----------------------------------------------------------
 Initize Variables
 ----------------------------------------------------------*/
-rtn_data.integer = 0xFFFF; //need a better way of determining if flag or not
+rtn_data.uint32 = 0xFFFF; //need a better way of determining if flag or not
 current_flag     = flag_type::NO_FLAG;
 
 /*----------------------------------------------------------

@@ -5,7 +5,7 @@
 *   HEADER:
 *       header file for mailbox types
 *
-*   Copyright 2024 Nate Lenze
+*   Copyright 2025 Nate Lenze
 *
 **********************************************************************/
 /*--------------------------------------------------------------------
@@ -29,85 +29,72 @@
 /*--------------------------------------------------------------------
                             TYPES/ENUMS
 --------------------------------------------------------------------*/
-/* RP2040 is a 32bit processor so float & int are 32 bits, hence raw_data can access fine*/
-typedef union 
-{
-    float        flt;
-    int          integer;
-    bool         boolean;
-    uint8_t      raw_data[4];
-}data_union;
 
-enum struct data_type
-{
-    FLOAT_32_TYPE,
-    UINT_32_TYPE,
-    BOOLEAN_TYPE,
-
-    NUM_TYPES
-};
-
-enum struct flag_type
-{
-    NO_FLAG,
-    TRANSMIT_FLAG,
-    RECEIVE_FLAG,
-
-    NUM_FLAGS
-};
-
-
-enum struct update_rate : int  //im unsure if this is legal in c++?
-{
-    RT_1_ROUND  = 1,
-    RT_5_ROUND  = 5,
-    RT_10_ROUND = 10,
-    RT_ASYNC    = 0xFF, //this needs to be fixed otherwise RT_ASYNC == RT1_ROUND
-
-    NUM_UPDATE_RATES = 4
-};
-
-enum struct direction 
-{
-    TX,
-    RX,
-
-    NUM_DIRECTINS
-};
-
-//mapping of sizes to how many u8 they would take up
-const std::unordered_map< data_type, int> size_map
+typedef union                 /* data union                         */
     {
-    { data_type::FLOAT_32_TYPE, 4 },
-    { data_type::UINT_32_TYPE,  4 },
-    { data_type::BOOLEAN_TYPE,  1 }
+    float        flt32;       /* float32 data                       */
+    int          uint32;      /* uint32 data                        */
+    bool         boolean;     /* boolean data                       */
+    uint8_t      raw_data[4]; /* raw data accessor
+                                 NOTE: RP2040 is a 32bit processor so 
+                                 float & int are 32 bits, hence 
+                                 raw_data can access bytes          */
+    }data_union;
+
+enum struct data_type /* data types for data_union                  */
+    {
+    FLOAT_32_TYPE,    /* flt32 data type                            */
+    UINT_32_TYPE,     /* uint32 data type                           */
+    BOOLEAN_TYPE,     /* boolean data type                          */
+
+    NUM_TYPES         /* number of data types                       */
     };
 
+enum struct flag_type /* mailbox flag (status)                      */
+    {
+    NO_FLAG,          /* no flag present                            */
+    TRANSMIT_FLAG,    /* transmit flag present                      */
+    RECEIVE_FLAG,     /* receive flag present                       */
 
+    NUM_FLAGS         /* number of flag types                       */
+    };
 
-// typedef enum
-// {
-//     MESSAGE_API_ENGINE,
-
-//     NUM_ENGINES
-// }engine_type;
-
-
-
-
-typedef struct
+enum struct update_rate : int /* Update rate (in rounds)            */
 {
-    data_union        data;
-    data_type         type;
-    update_rate       upt_rt;
-    // engine_type       engine; 
-    flag_type         flag;
-    direction         dir;
-    location          destination;
-    location          source;
-} mailbox_type;
+    RT_1_ROUND  = 1,          /* Update every (1) rounds            */
+    RT_5_ROUND  = 5,          /* Update every (1) rounds            */
+    RT_10_ROUND = 10,         /* Update every (10) rounds           */
+    RT_ASYNC    = 0xFF,       /* Update as data is updated (async)  */
 
+    NUM_UPDATE_RATES = 4      /* number of update rates             */
+};
 
+enum struct direction /* Direction of mailbox data                  */
+    {
+    TX,               /* transmit mailbox                           */
+    RX,               /* receive mailbox                            */
+
+    NUM_DIRECTINS     /* number of directions                       */
+    };
+
+const std::unordered_map< data_type, int> size_map /* size mapping of
+                                                      data_types to 
+                                                      byte size     */
+    {
+    { data_type::FLOAT_32_TYPE, 4 },               /* flt32 size    */
+    { data_type::UINT_32_TYPE,  4 },               /* uint32 size   */
+    { data_type::BOOLEAN_TYPE,  1 }                /* boolean size  */
+    };
+typedef struct                     /* mailbox entry format          */
+    {
+    data_union        data;        /* data entry                    */
+    data_type         type;        /* data type                     */
+    update_rate       upt_rt;      /* update rate (in rounds)       */
+    flag_type         flag;        /* data flag (status)            */
+    direction         dir;         /* data direction                */
+    location          destination; /* data destination              */
+    location          source;      /* data source                   */
+    } mailbox_type;
 
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
