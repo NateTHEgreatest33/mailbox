@@ -95,16 +95,16 @@ class mailbox
         bool update( data_union d, int global_mbx_indx, bool user_mode = true );                         /* mailbox data update */
 
     private:
-        std::array<mailbox_type, M>& p_mailbox_ref; /* global mailbox map reference */
-        int p_round_cntr;                           /* count number of rounds       */
+        std::array<mailbox_type, M>& p_mailbox_ref;    /* global mailbox map reference  */
+        int p_round_cntr;                              /* count number of rounds        */
 
-        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; /* transmit queue            */
-        utl::queue<M, mbx_index> p_ack_queue;          /* ack queue                 */
-        std::array<bool, M> p_awaiting_ack;            /* awaiting ack list         */
-        utl::queue<M, msgAPI_rx> p_rx_queue;           /* receive queue             */
-        volatile int p_current_round;                  /* current round             */
-        mutex_t p_mailbox_protection;                  /* mailbox update mutex      */
-        bool p_watchdog_pet;                           /* watchdog pet variable     */
+        utl::queue<(M+1), msgAPI_tx> p_transmit_queue; /* transmit queue                */
+        utl::queue<M, mbx_index> p_ack_queue;          /* ack queue                     */
+        std::array<bool, M> p_awaiting_ack;            /* awaiting ack list             */
+        utl::queue<M, msgAPI_rx> p_rx_queue;           /* receive queue                 */
+        volatile int p_current_round;                  /* current round                 */
+        mutex_t p_mailbox_protection;                  /* mailbox update mutex          */
+        bool p_watchdog_pet;                           /* watchdog pet variable         */
 
         tx_message lora_pack_engine( void );           /* pack lora messages            */
         void lora_unpack_engine( const rx_multi msg ); /* unpack lora messages          */
