@@ -919,8 +919,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		--------------------------------------------------*/
 		case msg_type::update:
 			return_msg.message[current_index++] = MSG_UPDATE_ID;
-			return_msg.message[current_index++] = ( p_current_round + 1) % NUM_OF_MODULES;
-			p_current_round = ( p_current_round + 1) % NUM_OF_MODULES;
+			return_msg.message[current_index++] = update_round();
 			break;
 
 		/*--------------------------------------------------
@@ -1134,11 +1133,36 @@ if( !p_watchdog_pet )
 	}
 } /* core::mailbox::watchdog() */
 
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox::update_round()
+*
+*   DESCRIPTION:
+*       standardized way of updating round correctly. returns new
+*		round value
+*
+*   NOTE:
+*
+*********************************************************************/
+template <int M>
+uint8_t core::mailbox<M>::update_round
+	( 
+	void 
+	)
+{
+/*----------------------------------------------------------
+Update p_current_round & rollover if end of module list
+----------------------------------------------------------*/
+p_current_round = ( p_current_round + 1) % NUM_OF_MODULES;
+return p_current_round;
+} /* core::mailbox::update_round() */
+
 
 /*
 more thoughts
 
-0) add function for round update instead of doing it in the lora pack engine (i think?) this makes it way more clear      -- Yes v1.0 update
+0) Update readme 																										  -- Yes v1.0 update
 
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
 2) Change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array                         -- YES! v1.1 update 
