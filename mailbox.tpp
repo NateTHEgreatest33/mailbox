@@ -551,7 +551,7 @@ w/ no ack data so there should be room in the buffer.
 ------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	p_errors != mailbox_error_types::TX_QUEUE_FULL;
+	p_errors |= mailbox_error_types::TX_QUEUE_FULL;
 	}
 
 /*------------------------------------------------------
