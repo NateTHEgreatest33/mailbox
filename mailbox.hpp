@@ -59,6 +59,25 @@ struct msgAPI_tx /* transmit data request mover                     */
     mbx_index i; /* message mailbox ptr                             */
     };
 
+enum mailbox_error_types               /* error bit array defines   */
+    {
+    NO_ERROR          = ( 0         ), /* no errors present         */
+
+    RX_MSG_API_ERR    = ( 0x01 << 0 ), /* message API failures in RX
+                                          runtime                   */
+    RX_INVALID_IDX    = ( 0x01 << 1 ), /* invalid index in RX 
+                                          runtime                   */
+    RX_UNEXPECTED_ACK = ( 0x01 << 2 ), /* unexpected ack in RX
+                                          runtime                   */
+    TX_QUEUE_FULL     = ( 0x01 << 3 ), /* TX queue full when
+                                          attempting to push to     */
+    TX_MSG_API_ERR    = ( 0x01 << 4 ), /* message API failures in TX
+                                          runtime                   */
+    INVALID_API_CALL  = ( 0x01 << 5 ), /* invalid use of Mailbox    */
+    ENGINE_FAILURE    = ( 0x01 << 6 ), /* unexpected behavior in 
+                                          engine                    */
+    };
+
 /*--------------------------------------------------------------------
                            MEMORY CONSTANTS
 --------------------------------------------------------------------*/
@@ -105,6 +124,7 @@ class mailbox
         volatile int p_current_round;                  /* current round                 */
         mutex_t p_mailbox_protection;                  /* mailbox update mutex          */
         bool p_watchdog_pet;                           /* watchdog pet variable         */
+        uint8_t p_errors;                              /* error bit array               */
 
         tx_message lora_pack_engine( void );           /* pack lora messages            */
         void lora_unpack_engine( const rx_multi msg ); /* unpack lora messages          */

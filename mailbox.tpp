@@ -40,6 +40,10 @@
 #define RND_CNTR_ROLLOVER       ( 100  ) /* Round rollover value   */
 #define INDEX_BYTE_SIZE         ( 1    ) /* size of index byte in 
 											message				   */
+
+#define TX_ERR_MASK				( 0x18 ) /* TX runtime error mask  */
+#define RX_ERR_MASK				( 0x0F ) /* RX runtime error mask  */
+#define ALL_ERR_MASK 			( 0xFF ) /* All error mask  	   */
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -166,7 +170,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 	------------------------------------------------------*/ 
 	if( msg.errors[msg_index] != MSG_NO_ERROR )
 		{
-		Console.add_assert("Errors present in msgAPI messages");
+		p_errors |= mailbox_error_types::RX_MSG_API_ERR;
 		continue;
 		}
 
@@ -255,7 +259,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			--------------------------------------------------*/
 			if( mailbox_index == mbx_index::MAILBOX_NONE )
 				{
-				Console.add_assert("Invalid indx received by lora_parse_engine");
+				p_errors |= mailbox_error_types::RX_INVALID_IDX;
 				break;
 				}
 
@@ -378,7 +382,7 @@ while( !p_rx_queue.is_empty() )
 
 			if( !p_transmit_queue.push( tx_msg ) )
 				{
-				Console.add_assert( "tx queue was full. failed to add ack to queue");
+				p_errors |= mailbox_error_types::TX_QUEUE_FULL;
 				}
 
 			break;
@@ -396,7 +400,7 @@ while( !p_rx_queue.is_empty() )
 			if( p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
 			else
-				Console.add_assert( "un-requested ack received");
+				p_errors |= mailbox_error_types::RX_UNEXPECTED_ACK;
 
 			break;
 			}
@@ -412,7 +416,7 @@ while( !p_rx_queue.is_empty() )
 		DEFAULT: defensive programing
 		----------------------------------------------*/
 		default:
-			Console.add_assert( "malformed return type" );
+			p_errors |= mailbox_error_types::ENGINE_FAILURE;
 			break;
 		}
 
@@ -420,6 +424,23 @@ while( !p_rx_queue.is_empty() )
 	Pop front of queue and continue while() loop
 	--------------------------------------------------*/
 	p_rx_queue.pop();
+	}
+
+/*------------------------------------------------------
+Error Handling
+------------------------------------------------------*/
+if( p_errors != mailbox_error_types::NO_ERROR )
+	{
+	/*--------------------------------------------------
+	Generate error string
+	--------------------------------------------------*/
+	std::string err_str = "Rx runtime encountered errors: " + std::to_string(p_errors);
+	Console.add_assert( err_str );
+
+	/*--------------------------------------------------
+	Clear Tx errors
+	--------------------------------------------------*/
+	p_errors = p_errors & ~RX_ERR_MASK;
 	}
 
 } /* core::mailbox<M>::rx_runtime() */
@@ -530,13 +551,30 @@ w/ no ack data so there should be room in the buffer.
 ------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	Console.add_assert("Error pushing round update to TX queue");
+	p_errors != mailbox_error_types::TX_QUEUE_FULL;
 	}
 
 /*------------------------------------------------------
 Run tranmit engine to handle p_transmit_queue.
 ------------------------------------------------------*/
 this->transmit_engine();
+
+/*------------------------------------------------------
+Error Handling
+------------------------------------------------------*/
+if( p_errors != mailbox_error_types::NO_ERROR )
+	{
+	/*--------------------------------------------------
+	Generate error string
+	--------------------------------------------------*/
+	std::string err_str = "Tx runtime encountered errors: " + std::to_string(p_errors);
+	Console.add_assert( err_str );
+
+	/*--------------------------------------------------
+	Clear Tx errors
+	--------------------------------------------------*/
+	p_errors = p_errors & ~TX_ERR_MASK;
+	}
 
 } /* core::mailbox<M>::tx_runtime */
 
@@ -572,7 +610,7 @@ if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == f
 Add msgAPI_tx object to Tx queue
 ----------------------------------------------------------*/
 if( !p_transmit_queue.push( msg_tx ) )
-	Console.add_assert("TX queue is full");
+	p_errors |= mailbox_error_types::TX_QUEUE_FULL;
 
 } /* core::mailbox<M>::process_tx() */
 
@@ -653,7 +691,7 @@ while( !p_transmit_queue.is_empty() )
 
 	if( !messageAPI.send_message( lora_frame ) )
 		{
-		Console.add_assert( "MessageAPI unable to TX" ); 
+		p_errors |= mailbox_error_types::TX_MSG_API_ERR;
 		}
 	}
 
@@ -980,7 +1018,7 @@ only be able to set RX items
 if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
     ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
 	{
-	Console.add_assert( "Mailbox::update() is being called on data it cannot update");
+	p_errors |= mailbox_error_types::INVALID_API_CALL;
 	return false;
 	}
 
@@ -1163,8 +1201,9 @@ return p_current_round;
 more thoughts
 
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
-2) Change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array                         -- YES! v1.1 update 
 3) add back engine var to mailbox map, each "engine" will handle its on tx/rx queue, remove lora pack/unpack junk.
    interface format will have common *._add_tx_queue(), *._rx_runtime(&global_rx_queue), *.tx_runtime()?  		 		  -- Yes v1.1 update
-4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc. 
+4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc.   -- Yes v1.1 update
+5) update access/update using mailbox_idx + change to standard enums to avoid multiple casting							  -- Yes v1.1 update
+6) CORE-46: overload [] for access/set function																			  -- Yes v1.1 update
 */
