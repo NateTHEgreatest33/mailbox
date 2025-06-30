@@ -69,13 +69,15 @@ enum mailbox_error_types               /* error bit array defines   */
                                           runtime                   */
     RX_UNEXPECTED_ACK = ( 0x01 << 2 ), /* unexpected ack in RX
                                           runtime                   */
-    TX_QUEUE_FULL     = ( 0x01 << 3 ), /* TX queue full when
-                                          attempting to push to     */
+    QUEUE_FULL        = ( 0x01 << 3 ), /* queue full when  attempting 
+                                          to push to                */
     TX_MSG_API_ERR    = ( 0x01 << 4 ), /* message API failures in TX
                                           runtime                   */
     INVALID_API_CALL  = ( 0x01 << 5 ), /* invalid use of Mailbox    */
     ENGINE_FAILURE    = ( 0x01 << 6 ), /* unexpected behavior in 
                                           engine                    */
+    RX_MSG_OVERFLOW   = ( 0x01 << 7 ), /* message overflow in RX
+                                          runtime                   */
     };
 
 /*--------------------------------------------------------------------

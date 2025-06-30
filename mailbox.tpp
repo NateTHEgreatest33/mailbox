@@ -273,11 +273,21 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			to the fact that the std::map is defined as const
 			------------------------------------------------------*/
 			auto itr = data_size_map.find( current_mailbox.type );
+			if (itr == data_size_map.end())
+				{
+				p_errors |= mailbox_error_types::ENGINE_FAILURE;
+				break; 
+				}
 			int data_size = itr->second;
 
 			/*------------------------------------------------------
-			memcpy data into union
+			verify size & memcpy data into union
 			------------------------------------------------------*/
+			if (msg_data_index + data_size > rx_msg.size)
+				{
+				p_errors |= mailbox_error_types::RX_MSG_OVERFLOW;
+				break; 
+				}
 			memcpy( &data, &(rx_msg.message[msg_data_index]), data_size );
 
 			/*------------------------------------------------------
@@ -382,7 +392,7 @@ while( !p_rx_queue.is_empty() )
 
 			if( !p_transmit_queue.push( tx_msg ) )
 				{
-				p_errors |= mailbox_error_types::TX_QUEUE_FULL;
+				p_errors |= mailbox_error_types::QUEUE_FULL;
 				}
 
 			break;
@@ -537,7 +547,8 @@ while( !p_ack_queue.is_empty() )
 	--------------------------------------------------*/
 	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
 		{
-		p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) );
+		if( !p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) ) )
+			p_errors |= mailbox_error_types::QUEUE_FULL;
 		}
 
 	p_ack_queue.pop();
@@ -551,7 +562,7 @@ w/ no ack data so there should be room in the buffer.
 ------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	p_errors |= mailbox_error_types::TX_QUEUE_FULL;
+	p_errors |= mailbox_error_types::QUEUE_FULL;
 	}
 
 /*------------------------------------------------------
@@ -610,7 +621,7 @@ if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == f
 Add msgAPI_tx object to Tx queue
 ----------------------------------------------------------*/
 if( !p_transmit_queue.push( msg_tx ) )
-	p_errors |= mailbox_error_types::TX_QUEUE_FULL;
+	p_errors |= mailbox_error_types::QUEUE_FULL;
 
 } /* core::mailbox<M>::process_tx() */
 
@@ -948,8 +959,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			/*----------------------------------------------
 			Add data to ack queue
 			----------------------------------------------*/
-			p_awaiting_ack[current_index] = true;
-			p_ack_queue.push( mailbox_index );
+			p_awaiting_ack[static_cast<int>(mailbox_index)] = true;
+
+			if( !p_ack_queue.push( mailbox_index ) )
+				p_errors |= mailbox_error_types::QUEUE_FULL;
+
 			break;
 
 		/*--------------------------------------------------
