@@ -438,9 +438,9 @@ if( p_errors != mailbox_error_types::NO_ERROR )
 	Console.add_assert( err_str );
 
 	/*--------------------------------------------------
-	Clear Tx errors
+	Clear errors
 	--------------------------------------------------*/
-	p_errors = p_errors & ~RX_ERR_MASK;
+	p_errors = 0x00;
 	}
 
 } /* core::mailbox<M>::rx_runtime() */
@@ -571,9 +571,9 @@ if( p_errors != mailbox_error_types::NO_ERROR )
 	Console.add_assert( err_str );
 
 	/*--------------------------------------------------
-	Clear Tx errors
+	Clear errors
 	--------------------------------------------------*/
-	p_errors = p_errors & ~TX_ERR_MASK;
+	p_errors = 0x00;
 	}
 
 } /* core::mailbox<M>::tx_runtime */
@@ -771,6 +771,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			clear out return data and exit
 			----------------------------------------------*/
 			memset( &return_msg, 0, sizeof( tx_message ) );
+			p_errors |= mailbox_error_types::RX_INVALID_IDX;
 			return return_msg;
 			}
 
@@ -828,6 +829,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		Exit since unexpected case is reached
 		--------------------------------------------------*/
 		default:
+			p_errors |= mailbox_error_types::ENGINE_FAILURE;
 			data_size = 0;
 			memset( &return_msg, 0, sizeof( tx_message ) );
 			return return_msg;
@@ -877,9 +879,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			break;
 		
 		/*--------------------------------------------------
-		CASE: default case
+		CASE: default case (defense programing). This should
+		not be able to be hit
 		--------------------------------------------------*/
 		default:
+			p_errors |= mailbox_error_types::ENGINE_FAILURE;
 			break;
 		}
 
@@ -961,9 +965,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			break;
 
 		/*--------------------------------------------------
-		CASE: default case
+		CASE: default case (defensive programing). This
+		should not be possible to hit
 		--------------------------------------------------*/
 		default:
+			p_errors |= mailbox_error_types::ENGINE_FAILURE;
 			break;
 		}
 
