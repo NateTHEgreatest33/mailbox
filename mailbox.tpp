@@ -40,6 +40,10 @@
 #define RND_CNTR_ROLLOVER       ( 100  ) /* Round rollover value   */
 #define INDEX_BYTE_SIZE         ( 1    ) /* size of index byte in 
 											message				   */
+
+#define TX_ERR_MASK				( 0x18 ) /* TX runtime error mask  */
+#define RX_ERR_MASK				( 0x0F ) /* RX runtime error mask  */
+#define ALL_ERR_MASK 			( 0xFF ) /* All error mask  	   */
 /*--------------------------------------------------------------------
                                 TYPES
 --------------------------------------------------------------------*/
@@ -166,7 +170,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 	------------------------------------------------------*/ 
 	if( msg.errors[msg_index] != MSG_NO_ERROR )
 		{
-		Console.add_assert("Errors present in msgAPI messages");
+		this->log_error(mailbox_error_types::RX_MSG_API_ERR);
 		continue;
 		}
 
@@ -254,10 +258,10 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			this message and continue to next message in rx_multi
 			--------------------------------------------------*/
 			if( mailbox_index == mbx_index::MAILBOX_NONE )
-				{
-				Console.add_assert("Invalid indx received by lora_parse_engine");
-				break;
-				}
+					{
+					this->log_error(mailbox_error_types::RX_INVALID_IDX);
+					break;
+					}
 
 			/*------------------------------------------------------
 			Aquire mailbox from index
@@ -269,11 +273,21 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			to the fact that the std::map is defined as const
 			------------------------------------------------------*/
 			auto itr = data_size_map.find( current_mailbox.type );
+			if (itr == data_size_map.end())
+				{
+				this->log_error(mailbox_error_types::ENGINE_FAILURE);
+				break; 
+				}
 			int data_size = itr->second;
 
 			/*------------------------------------------------------
-			memcpy data into union
+			verify size & memcpy data into union
 			------------------------------------------------------*/
+			if (msg_data_index + data_size > rx_msg.size)
+				{
+				this->log_error(mailbox_error_types::RX_MSG_OVERFLOW);
+				break; 
+				}
 			memcpy( &data, &(rx_msg.message[msg_data_index]), data_size );
 
 			/*------------------------------------------------------
@@ -378,7 +392,7 @@ while( !p_rx_queue.is_empty() )
 
 			if( !p_transmit_queue.push( tx_msg ) )
 				{
-				Console.add_assert( "tx queue was full. failed to add ack to queue");
+				this->log_error(mailbox_error_types::QUEUE_FULL);
 				}
 
 			break;
@@ -396,7 +410,7 @@ while( !p_rx_queue.is_empty() )
 			if( p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
 			else
-				Console.add_assert( "un-requested ack received");
+				this->log_error(mailbox_error_types::RX_UNEXPECTED_ACK);
 
 			break;
 			}
@@ -412,7 +426,7 @@ while( !p_rx_queue.is_empty() )
 		DEFAULT: defensive programing
 		----------------------------------------------*/
 		default:
-			Console.add_assert( "malformed return type" );
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -420,6 +434,23 @@ while( !p_rx_queue.is_empty() )
 	Pop front of queue and continue while() loop
 	--------------------------------------------------*/
 	p_rx_queue.pop();
+	}
+
+/*------------------------------------------------------
+Error Handling
+------------------------------------------------------*/
+if( p_errors != mailbox_error_types::NO_ERROR )
+	{
+	/*--------------------------------------------------
+	Generate error string
+	--------------------------------------------------*/
+	std::string err_str = "Rx runtime encountered errors: " + std::to_string(p_errors);
+	Console.add_assert( err_str );
+
+	/*--------------------------------------------------
+	Clear errors
+	--------------------------------------------------*/
+	p_errors = 0x00;
 	}
 
 } /* core::mailbox<M>::rx_runtime() */
@@ -516,7 +547,8 @@ while( !p_ack_queue.is_empty() )
 	--------------------------------------------------*/
 	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
 		{
-		p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) );
+		if( !p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) ) )
+			this->log_error(mailbox_error_types::QUEUE_FULL);
 		}
 
 	p_ack_queue.pop();
@@ -530,13 +562,30 @@ w/ no ack data so there should be room in the buffer.
 ------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	Console.add_assert("Error pushing round update to TX queue");
+	this->log_error(mailbox_error_types::QUEUE_FULL);
 	}
 
 /*------------------------------------------------------
 Run tranmit engine to handle p_transmit_queue.
 ------------------------------------------------------*/
 this->transmit_engine();
+
+/*------------------------------------------------------
+Error Handling
+------------------------------------------------------*/
+if( p_errors != mailbox_error_types::NO_ERROR )
+	{
+	/*--------------------------------------------------
+	Generate error string
+	--------------------------------------------------*/
+	std::string err_str = "Tx runtime encountered errors: " + std::to_string(p_errors);
+	Console.add_assert( err_str );
+
+	/*--------------------------------------------------
+	Clear errors
+	--------------------------------------------------*/
+	p_errors = 0x00;
+	}
 
 } /* core::mailbox<M>::tx_runtime */
 
@@ -572,7 +621,7 @@ if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == f
 Add msgAPI_tx object to Tx queue
 ----------------------------------------------------------*/
 if( !p_transmit_queue.push( msg_tx ) )
-	Console.add_assert("TX queue is full");
+	this->log_error(mailbox_error_types::QUEUE_FULL);
 
 } /* core::mailbox<M>::process_tx() */
 
@@ -653,7 +702,7 @@ while( !p_transmit_queue.is_empty() )
 
 	if( !messageAPI.send_message( lora_frame ) )
 		{
-		Console.add_assert( "MessageAPI unable to TX" ); 
+		this->log_error(mailbox_error_types::TX_MSG_API_ERR);
 		}
 	}
 
@@ -733,6 +782,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			clear out return data and exit
 			----------------------------------------------*/
 			memset( &return_msg, 0, sizeof( tx_message ) );
+			this->log_error(mailbox_error_types::RX_INVALID_IDX);
 			return return_msg;
 			}
 
@@ -790,6 +840,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		Exit since unexpected case is reached
 		--------------------------------------------------*/
 		default:
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			data_size = 0;
 			memset( &return_msg, 0, sizeof( tx_message ) );
 			return return_msg;
@@ -839,9 +890,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			break;
 		
 		/*--------------------------------------------------
-		CASE: default case
+		CASE: default case (defense programing). This should
+		not be able to be hit
 		--------------------------------------------------*/
 		default:
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -906,8 +959,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			/*----------------------------------------------
 			Add data to ack queue
 			----------------------------------------------*/
-			p_awaiting_ack[current_index] = true;
-			p_ack_queue.push( mailbox_index );
+			p_awaiting_ack[static_cast<int>(mailbox_index)] = true;
+
+			if( !p_ack_queue.push( mailbox_index ) )
+				p_errors |= mailbox_error_types::QUEUE_FULL;
+
 			break;
 
 		/*--------------------------------------------------
@@ -923,9 +979,11 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			break;
 
 		/*--------------------------------------------------
-		CASE: default case
+		CASE: default case (defensive programing). This
+		should not be possible to hit
 		--------------------------------------------------*/
 		default:
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -941,6 +999,23 @@ return message and set size to current index
 ----------------------------------------------------------*/
 return_msg.size = current_index;
 return return_msg;
+}
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox<M>::log_error()
+*
+*   DESCRIPTION:
+*       This is a private function that logs an error
+*
+*   NOTE:
+*
+*********************************************************************/
+template <int M>
+void core::mailbox<M>::log_error( mailbox_error_types err )
+{
+	p_errors |= err;
 }
 
 
@@ -977,10 +1052,10 @@ Verify tx/rx mode is accessed correctly. The user should only
 be able to set TX items, while the updater functions should
 only be able to set RX items
 ----------------------------------------------------------*/
-if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
+	if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
     ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
 	{
-	Console.add_assert( "Mailbox::update() is being called on data it cannot update");
+	this->log_error(mailbox_error_types::INVALID_API_CALL);
 	return false;
 	}
 
@@ -1163,8 +1238,9 @@ return p_current_round;
 more thoughts
 
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
-2) Change all Console.add_asserts to a single assert in Tx/Rx Runtime based on an error bit array                         -- YES! v1.1 update 
 3) add back engine var to mailbox map, each "engine" will handle its on tx/rx queue, remove lora pack/unpack junk.
    interface format will have common *._add_tx_queue(), *._rx_runtime(&global_rx_queue), *.tx_runtime()?  		 		  -- Yes v1.1 update
-4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc. 
+4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc.   -- Yes v1.1 update
+5) update access/update using mailbox_idx + change to standard enums to avoid multiple casting							  -- Yes v1.1 update
+6) CORE-46: overload [] for access/set function																			  -- Yes v1.1 update
 */
