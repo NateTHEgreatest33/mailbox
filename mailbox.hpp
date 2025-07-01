@@ -133,6 +133,7 @@ class mailbox
         void process_tx( mbx_index index );            /* process tx data               */
         void process_rx_data( mbx_index index, data_union data ); /* process rx data    */
         void transmit_engine( void );                  /* transmit engine               */
+        void log_error( mailbox_error_types err );     /* log error                     */
         mbx_index verify_index( int idx );             /* verify mailbox index validity */
         uint8_t update_round( void );                  /* update round                  */
 

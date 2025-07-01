@@ -170,7 +170,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 	------------------------------------------------------*/ 
 	if( msg.errors[msg_index] != MSG_NO_ERROR )
 		{
-		p_errors |= mailbox_error_types::RX_MSG_API_ERR;
+		this->log_error(mailbox_error_types::RX_MSG_API_ERR);
 		continue;
 		}
 
@@ -258,10 +258,10 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			this message and continue to next message in rx_multi
 			--------------------------------------------------*/
 			if( mailbox_index == mbx_index::MAILBOX_NONE )
-				{
-				p_errors |= mailbox_error_types::RX_INVALID_IDX;
-				break;
-				}
+					{
+					this->log_error(mailbox_error_types::RX_INVALID_IDX);
+					break;
+					}
 
 			/*------------------------------------------------------
 			Aquire mailbox from index
@@ -275,7 +275,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			auto itr = data_size_map.find( current_mailbox.type );
 			if (itr == data_size_map.end())
 				{
-				p_errors |= mailbox_error_types::ENGINE_FAILURE;
+				this->log_error(mailbox_error_types::ENGINE_FAILURE);
 				break; 
 				}
 			int data_size = itr->second;
@@ -285,7 +285,7 @@ for( msg_index = 0; msg_index < msg.num_messages; msg_index++ )
 			------------------------------------------------------*/
 			if (msg_data_index + data_size > rx_msg.size)
 				{
-				p_errors |= mailbox_error_types::RX_MSG_OVERFLOW;
+				this->log_error(mailbox_error_types::RX_MSG_OVERFLOW);
 				break; 
 				}
 			memcpy( &data, &(rx_msg.message[msg_data_index]), data_size );
@@ -392,7 +392,7 @@ while( !p_rx_queue.is_empty() )
 
 			if( !p_transmit_queue.push( tx_msg ) )
 				{
-				p_errors |= mailbox_error_types::QUEUE_FULL;
+				this->log_error(mailbox_error_types::QUEUE_FULL);
 				}
 
 			break;
@@ -410,7 +410,7 @@ while( !p_rx_queue.is_empty() )
 			if( p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
 				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
 			else
-				p_errors |= mailbox_error_types::RX_UNEXPECTED_ACK;
+				this->log_error(mailbox_error_types::RX_UNEXPECTED_ACK);
 
 			break;
 			}
@@ -426,7 +426,7 @@ while( !p_rx_queue.is_empty() )
 		DEFAULT: defensive programing
 		----------------------------------------------*/
 		default:
-			p_errors |= mailbox_error_types::ENGINE_FAILURE;
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -548,7 +548,7 @@ while( !p_ack_queue.is_empty() )
 	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
 		{
 		if( !p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) ) )
-			p_errors |= mailbox_error_types::QUEUE_FULL;
+			this->log_error(mailbox_error_types::QUEUE_FULL);
 		}
 
 	p_ack_queue.pop();
@@ -562,7 +562,7 @@ w/ no ack data so there should be room in the buffer.
 ------------------------------------------------------*/
 if( !p_transmit_queue.push( msgAPI_tx( msg_type::update, mbx_index::MAILBOX_NONE ) ) )
 	{
-	p_errors |= mailbox_error_types::QUEUE_FULL;
+	this->log_error(mailbox_error_types::QUEUE_FULL);
 	}
 
 /*------------------------------------------------------
@@ -621,7 +621,7 @@ if( current_mailbox.upt_rt == update_rate::RT_ASYNC && current_mailbox.flag == f
 Add msgAPI_tx object to Tx queue
 ----------------------------------------------------------*/
 if( !p_transmit_queue.push( msg_tx ) )
-	p_errors |= mailbox_error_types::QUEUE_FULL;
+	this->log_error(mailbox_error_types::QUEUE_FULL);
 
 } /* core::mailbox<M>::process_tx() */
 
@@ -702,7 +702,7 @@ while( !p_transmit_queue.is_empty() )
 
 	if( !messageAPI.send_message( lora_frame ) )
 		{
-		p_errors |= mailbox_error_types::TX_MSG_API_ERR;
+		this->log_error(mailbox_error_types::TX_MSG_API_ERR);
 		}
 	}
 
@@ -782,7 +782,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			clear out return data and exit
 			----------------------------------------------*/
 			memset( &return_msg, 0, sizeof( tx_message ) );
-			p_errors |= mailbox_error_types::RX_INVALID_IDX;
+			this->log_error(mailbox_error_types::RX_INVALID_IDX);
 			return return_msg;
 			}
 
@@ -840,7 +840,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		Exit since unexpected case is reached
 		--------------------------------------------------*/
 		default:
-			p_errors |= mailbox_error_types::ENGINE_FAILURE;
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			data_size = 0;
 			memset( &return_msg, 0, sizeof( tx_message ) );
 			return return_msg;
@@ -894,7 +894,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		not be able to be hit
 		--------------------------------------------------*/
 		default:
-			p_errors |= mailbox_error_types::ENGINE_FAILURE;
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -983,7 +983,7 @@ while( p_transmit_queue.size() > 0 && !message_full )
 		should not be possible to hit
 		--------------------------------------------------*/
 		default:
-			p_errors |= mailbox_error_types::ENGINE_FAILURE;
+			this->log_error(mailbox_error_types::ENGINE_FAILURE);
 			break;
 		}
 
@@ -999,6 +999,23 @@ return message and set size to current index
 ----------------------------------------------------------*/
 return_msg.size = current_index;
 return return_msg;
+}
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox<M>::log_error()
+*
+*   DESCRIPTION:
+*       This is a private function that logs an error
+*
+*   NOTE:
+*
+*********************************************************************/
+template <int M>
+void core::mailbox<M>::log_error( mailbox_error_types err )
+{
+	p_errors |= err;
 }
 
 
@@ -1035,10 +1052,10 @@ Verify tx/rx mode is accessed correctly. The user should only
 be able to set TX items, while the updater functions should
 only be able to set RX items
 ----------------------------------------------------------*/
-if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
+	if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
     ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
 	{
-	p_errors |= mailbox_error_types::INVALID_API_CALL;
+	this->log_error(mailbox_error_types::INVALID_API_CALL);
 	return false;
 	}
 
