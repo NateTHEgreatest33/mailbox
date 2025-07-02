@@ -113,7 +113,7 @@ while( tx_itr != tx_test_cases.end() )
     /*------------------------------------------------------
     Read test variable
     ------------------------------------------------------*/
-    temp_data = Mailbox.access( (tx_itr->second).first, temp_flag );
+    temp_data = Mailbox[(tx_itr->second).first].access_with_flag(temp_flag);
 
     /*------------------------------------------------------
     If data has been updated, process
@@ -126,7 +126,7 @@ while( tx_itr != tx_test_cases.end() )
         if( memcmp( &((tx_itr->second).second), &temp_data, sizeof(data_union) ) == 0 )
             {
             return_value.uint32 = tx_itr->first;
-            Mailbox.update( return_value, static_cast<int>(mbx_index::TEST_RX_FROM_RPI_MSG ) );
+            Mailbox[mbx_index::TEST_RX_FROM_RPI_MSG] = return_value;
             }
         }
     /*------------------------------------------------------
@@ -143,7 +143,7 @@ while( rx_itr != rx_test_cases.end() )
     /*------------------------------------------------------
     Get test command
     ------------------------------------------------------*/
-    temp_data = Mailbox.access( mbx_index::TEST_TX_FROM_RPI_MSG, temp_flag );
+    temp_data = Mailbox[mbx_index::TEST_TX_FROM_RPI_MSG].access_with_flag(temp_flag);
 
     /*------------------------------------------------------
     Find command in rx_test_cases map
@@ -155,7 +155,7 @@ while( rx_itr != rx_test_cases.end() )
     ------------------------------------------------------*/
     if( pair != rx_test_cases.end() )
         {
-        Mailbox.update( (pair->second).second, static_cast<int>((pair->second).first) );
+        Mailbox[(pair->second).first] = (pair->second).second;
         }
 
     /*------------------------------------------------------

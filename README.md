@@ -163,9 +163,15 @@ Mailbox.watchdog();
 ```
 
 ### Access/Update data
+
 ```cpp
+// Update a mailbox entry (write)
+Mailbox[mbx_index::EXAMPLE_INT_MSG] = return_value;
 
-Mailbox.update( return_value, static_cast<int>(mbx_index::EXAMPLE_INT_MSG ) );
-temp_data = Mailbox.access( mbx_index::EXAMPLE_RX_MSG, temp_flag );
+// Access a mailbox entry (read)
+flag_type temp_flag;
+temp_data = Mailbox[mbx_index::EXAMPLE_RX_MSG].access_with_flag(temp_flag);
 
+// If you don't need the flag, you can read directly:
+data_union simple_data = Mailbox[mbx_index::EXAMPLE_RX_MSG];
 ```
