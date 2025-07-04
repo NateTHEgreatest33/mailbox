@@ -97,10 +97,36 @@ enum mailbox_error_types               /* error bit array defines   */
 --------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------
-                               CLASSES
+                             PROXY CLASSES
 --------------------------------------------------------------------*/
 namespace core {
+/*--------------------------------------------------
+forward declaration of mailbox class
+--------------------------------------------------*/
+template<int M>
+class mailbox;
 
+/*--------------------------------------------------
+Proxy class to enable operator[] read/write syntax
+--------------------------------------------------*/
+template<int M>
+class mailbox_accessor
+    {
+    public:
+        mailbox_accessor(mailbox<M>& mbx, mbx_index idx);                                  /* constructor                  */
+        mailbox_accessor& operator=(const data_union& data);                               /* assignment operator          */
+        operator data_union() const;                                                       /* type conversion operator     */
+        data_union access_with_flag(flag_type& current_flag, bool clear_flag = true);      /* access with flag             */
+
+    private:
+        mailbox<M>& p_mailbox;      /* reference to parent mailbox */
+        const mbx_index p_index;    /* index for this accessor     */
+    };
+
+
+/*--------------------------------------------------------------------
+                            MAILBOX CLASSE
+--------------------------------------------------------------------*/
 template<int M>
 class mailbox
     {
@@ -114,6 +140,9 @@ class mailbox
 
         data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true ); /* mailbox data access */
         bool update( data_union d, int global_mbx_indx, bool user_mode = true );                         /* mailbox data update */
+        
+        mailbox_accessor<M> operator[](mbx_index index);      /* overload [] 
+                                                                  operator      */
 
     private:
         std::array<mailbox_type, M>& p_mailbox_ref;    /* global mailbox map reference  */

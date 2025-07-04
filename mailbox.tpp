@@ -1234,13 +1234,100 @@ return p_current_round;
 } /* core::mailbox::update_round() */
 
 
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox_accessor<M>::mailbox_accessor
+*
+*   DESCRIPTION:
+*       constructor for the accessor proxy class
+*
+*   NOTE:
+*
+*********************************************************************/
+template<int M>
+core::mailbox_accessor<M>::mailbox_accessor(core::mailbox<M>& mbx, mbx_index idx)
+    : p_mailbox(mbx), p_index(idx)
+{
+    // Left blank intentionally
+} /* core::mailbox_accessor<M>::mailbox_accessor */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox_accessor<M>::operator=
+*
+*   DESCRIPTION:
+*       assignment operator overload for the proxy class
+*
+*   NOTE:
+*
+*********************************************************************/
+template<int M>
+core::mailbox_accessor<M>& core::mailbox_accessor<M>::operator=(const data_union& data)
+{
+    p_mailbox.update(data, static_cast<int>(p_index), true);
+    return *this;
+} /* core::mailbox_accessor<M>::operator= */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox_accessor<M>::operator data_union
+*
+*   DESCRIPTION:
+*       type conversion operator for the proxy class
+*
+*   NOTE:
+*
+*********************************************************************/
+template<int M>
+core::mailbox_accessor<M>::operator data_union() const
+{
+    flag_type dummy_flag;
+    return p_mailbox.access(p_index, dummy_flag, true);
+} /* core::mailbox_accessor<M>::operator data_union() */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox_accessor<M>::access_with_flag
+*
+*   DESCRIPTION:
+*       allows access to the underlying flag
+*
+*   NOTE:
+*
+*********************************************************************/
+template<int M>
+data_union core::mailbox_accessor<M>::access_with_flag(flag_type& current_flag, bool clear_flag)
+{
+    return p_mailbox.access(p_index, current_flag, clear_flag);
+} /* core::mailbox_accessor<M>::access_with_flag() */
+
+/*********************************************************************
+*
+*   PROCEDURE NAME:
+*       core::mailbox<M>::operator[]
+*
+*   DESCRIPTION:
+*       [] operator overload, returns a proxy object
+*
+*   NOTE:
+*
+*********************************************************************/
+template<int M>
+core::mailbox_accessor<M> core::mailbox<M>::operator[](mbx_index index)
+{
+    return mailbox_accessor<M>(*this, index);
+} /* core::mailbox<M>::operator[] */
+
+
 /*
 more thoughts
-
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
 3) add back engine var to mailbox map, each "engine" will handle its on tx/rx queue, remove lora pack/unpack junk.
    interface format will have common *._add_tx_queue(), *._rx_runtime(&global_rx_queue), *.tx_runtime()?  		 		  -- Yes v1.1 update
 4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc.   -- Yes v1.1 update
 5) update access/update using mailbox_idx + change to standard enums to avoid multiple casting							  -- Yes v1.1 update
-6) CORE-46: overload [] for access/set function																			  -- Yes v1.1 update
 */
