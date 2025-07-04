@@ -1325,11 +1325,9 @@ core::mailbox_accessor<M> core::mailbox<M>::operator[](mbx_index index)
 
 /*
 more thoughts
-
 1) table should be global accross units, which means terms like source and destination, make sense? no dual communication -- YES! v1.1 update 
 3) add back engine var to mailbox map, each "engine" will handle its on tx/rx queue, remove lora pack/unpack junk.
    interface format will have common *._add_tx_queue(), *._rx_runtime(&global_rx_queue), *.tx_runtime()?  		 		  -- Yes v1.1 update
 4) change queues to std::maps OR std::array. this will allow us to mark data as "to send" and avoid duplicate acks etc.   -- Yes v1.1 update
 5) update access/update using mailbox_idx + change to standard enums to avoid multiple casting							  -- Yes v1.1 update
-6) CORE-46: overload [] for access/set function																			  -- Yes v1.1 update
 */

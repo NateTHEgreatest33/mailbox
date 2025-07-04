@@ -143,7 +143,7 @@ while( rx_itr != rx_test_cases.end() )
     /*------------------------------------------------------
     Get test command
     ------------------------------------------------------*/
-    temp_data = Mailbox[mbx_index::TEST_TX_FROM_RPI_MSG].access_with_flag(temp_flag);
+    temp_data = Mailbox[mbx_index::TEST_TX_FROM_RPI_MSG];
 
     /*------------------------------------------------------
     Find command in rx_test_cases map

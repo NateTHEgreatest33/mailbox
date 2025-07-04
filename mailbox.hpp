@@ -140,7 +140,6 @@ class mailbox
 
         data_union access( mbx_index global_mbx_indx, flag_type& current_flag, bool clear_flag = true ); /* mailbox data access */
         bool update( data_union d, int global_mbx_indx, bool user_mode = true );                         /* mailbox data update */
-
         
         mailbox_accessor<M> operator[](mbx_index index);      /* overload [] 
                                                                   operator      */
