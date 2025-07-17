@@ -508,7 +508,7 @@ for( i = 0; i < M; i++ )
 	/*--------------------------------------------------
 	Skip index if not a TX mailbox
 	--------------------------------------------------*/
-	if( currentMbx.dir != direction::TX )
+	if( currentMbx.source != current_location )
 		continue;
 
 	/*--------------------------------------------------
@@ -1049,11 +1049,11 @@ if( this->verify_index( global_mbx_indx) == mbx_index::MAILBOX_NONE )
 	}
 /*----------------------------------------------------------
 Verify tx/rx mode is accessed correctly. The user should only
-be able to set TX items, while the updater functions should
-only be able to set RX items
+be able to set TX items (source - us), while the updater 
+functions should only be able to set RX items (dest - us)
 ----------------------------------------------------------*/
-	if( ( user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::RX   ) ||
-    ( !user_mode && p_mailbox_ref[global_mbx_indx].dir == direction::TX  ) )
+if( ( user_mode && p_mailbox_ref[global_mbx_indx].source != current_location   ) ||
+    ( !user_mode && p_mailbox_ref[global_mbx_indx].destination != current_location  ) )
 	{
 	this->log_error(mailbox_error_types::INVALID_API_CALL);
 	return false;
@@ -1082,7 +1082,7 @@ Update mailbox while protected
 	} /* release mutex */
 
 /*----------------------------------------------------------
-return true with data having been 
+return true with data having been updated
 ----------------------------------------------------------*/
 return true;
 

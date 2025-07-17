@@ -68,15 +68,6 @@ enum struct update_rate : int /* Update rate (in rounds)            */
 
     NUM_UPDATE_RATES = 4      /* number of update rates             */
 };
-
-enum struct direction /* Direction of mailbox data                  */
-    {
-    TX,               /* transmit mailbox                           */
-    RX,               /* receive mailbox                            */
-
-    NUM_DIRECTINS     /* number of directions                       */
-    };
-
 const std::unordered_map< data_type, int> size_map /* size mapping of
                                                       data_types to 
                                                       byte size     */
@@ -91,7 +82,6 @@ typedef struct                     /* mailbox entry format          */
     data_type         type;        /* data type                     */
     update_rate       upt_rt;      /* update rate (in rounds)       */
     flag_type         flag;        /* data flag (status)            */
-    direction         dir;         /* data direction                */
     location          destination; /* data destination              */
     location          source;      /* data source                   */
     } mailbox_type;
