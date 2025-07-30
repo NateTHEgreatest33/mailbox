@@ -408,7 +408,7 @@ while( !p_rx_queue.is_empty() )
 			expected, otherwise assert
 			------------------------------------------*/
 			if( p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] )
-				p_awaiting_ack[ static_cast<uint8_t>(temp.i) ] = false;
+				p_ack_rxed[ static_cast<uint8_t>(temp.i) ] = false;
 			else
 				this->log_error(mailbox_error_types::RX_UNEXPECTED_ACK);
 
@@ -537,22 +537,38 @@ transmit engine and round update in order to
 1) clear ack queue (which is reset in tx_engine)
 2) resend messages w/ missing Acks
 ------------------------------------------------------*/
-while( !p_ack_queue.is_empty() )
+for( int idx = 0; idx < M; idx++ )
 	{
-	current_index = p_ack_queue.front();
-
-	/*--------------------------------------------------
-	If awaiting ack is not false this means we have 
-	missed an ack, if this is the case, resend data
-	--------------------------------------------------*/
-	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
+	if( p_awaiting_ack[idx] == true && p_ack_rxed[idx] == false ) 
 		{
+		//couple issues, this doesnt work w/ round > 1, since this is cleared every tx round
 		if( !p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) ) )
 			this->log_error(mailbox_error_types::QUEUE_FULL);
 		}
-
-	p_ack_queue.pop();
+	else
+		{
+		p_awaiting_ack[idx] = false;
+		p_ack_rxed[idx] = false;
+		}
 	}
+
+
+// while( !p_ack_queue.is_empty() )
+// 	{
+// 	current_index = p_ack_queue.front();
+
+// 	/*--------------------------------------------------
+// 	If awaiting ack is not false this means we have 
+// 	missed an ack, if this is the case, resend data
+// 	--------------------------------------------------*/
+// 	if( p_awaiting_ack[static_cast<int>(current_index)] != false )
+// 		{
+// 		if( !p_transmit_queue.push( msgAPI_tx( msg_type::data, current_index ) ) )
+// 			this->log_error(mailbox_error_types::QUEUE_FULL);
+// 		}
+
+// 	p_ack_queue.pop();
+// 	}
 
 /*------------------------------------------------------
 Add Update transmit round to queue. If this operation
@@ -957,12 +973,14 @@ while( p_transmit_queue.size() > 0 && !message_full )
 			current_index += data_size;
 
 			/*----------------------------------------------
-			Add data to ack queue
+			Mark awaiting ack as true
 			----------------------------------------------*/
 			p_awaiting_ack[static_cast<int>(mailbox_index)] = true;
 
-			if( !p_ack_queue.push( mailbox_index ) )
-				p_errors |= mailbox_error_types::QUEUE_FULL;
+			//is this right? why are we adding an ack to our request ack?
+			// if( !p_ack_queue.push( mailbox_index ) )
+			// 	p_errors |= mailbox_error_types::QUEUE_FULL;
+			// p_request_ack[ static_cast<int>(mailbox_index) ] = true;
 
 			break;
 

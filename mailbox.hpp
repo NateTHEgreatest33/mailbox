@@ -149,7 +149,8 @@ class mailbox
         int p_round_cntr;                              /* count number of rounds        */
 
         utl::queue<(M+1), msgAPI_tx> p_transmit_queue; /* transmit queue                */
-        utl::queue<M, mbx_index> p_ack_queue;          /* ack queue                     */
+        // utl::queue<M, mbx_index> p_ack_queue;          /* ack queue                     */
+        utl::array<bool, array> p_request_ack;         /* ack queue                     */
         std::array<bool, M> p_awaiting_ack;            /* awaiting ack list             */
         utl::queue<M, msgAPI_rx> p_rx_queue;           /* receive queue                 */
         volatile int p_current_round;                  /* current round                 */
