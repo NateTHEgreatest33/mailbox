@@ -24,8 +24,6 @@ target_link_libraries( mailboxAPI
   utilLib
   consoleAPI
 
-  # Using Pico W
-  pico_cyw43_arch_none
 )
 
 target_include_directories( mailboxAPI PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" )
