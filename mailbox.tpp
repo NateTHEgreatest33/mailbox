@@ -15,7 +15,7 @@
 --------------------------------------------------------------------*/
 #include "mailbox.hpp"
 #include "messageAPI.hpp"
-#include "Console.hpp"
+#include "console.hpp"
 #include "mailbox_types.hpp"
 
 #include <functional>
